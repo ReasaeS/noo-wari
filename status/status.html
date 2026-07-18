@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Signal Not Found</title>
+    <style>
+        body {
+            background: black;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+        }
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 1;
+        }
+        .box {
+            position: relative;
+            z-index: 2;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #ffff00;
+            padding: 2rem 2.5rem;
+            text-align: center;
+            box-shadow:
+                0 0 16px #ffff0099,
+                0 0 32px #ffff0066,
+                inset 0 0 10px rgba(255, 255, 0, 0.3);
+        }
+
+        h1 {
+            color: #ffff00;
+            letter-spacing: 4px;
+            margin: 0 0 1rem;
+            text-shadow:
+                0 0 16px #ffff0099,
+                0 0 32px #ffff0066;
+        }
+
+        a {
+            color: #000000;
+            background: #ffff00;
+            padding: 0.6rem 1.8rem;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: bold;
+            letter-spacing: 2px;
+            border: 2px solid #ffff00;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            box-shadow:
+                0 0 16px #ffff0099,
+                0 0 32px #ffff0066,
+                inset 0 0 10px rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        a:hover {
+            background: #ffff66;
+            color: #000000;
+            border-color: #ffff66;
+            box-shadow:
+                0 0 16px #ffff0099,
+                0 0 32px #ffff0066,
+                inset 0 0 20px rgba(255, 255, 255, 0.6);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="staticCanvas"></canvas>
+    <div class="box">
+        <h1>SIGNAL NOT FOUND (404)</h1>
+        <a href="/" id="retune">RETUNE</a>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('staticCanvas');
+        const ctx = canvas.getContext('2d');
+        const BLOCK_SIZE = 16;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        let lastFrame = 0;
+        const FRAME_DELAY = 1000 / 24;
+
+        function drawStatic(now) {
+            if (now - lastFrame < FRAME_DELAY) {
+                requestAnimationFrame(drawStatic);
+                return;
+            }
+            lastFrame = now;
+
+            const cols = Math.ceil(canvas.width / BLOCK_SIZE);
+            const rows = Math.ceil(canvas.height / BLOCK_SIZE);
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const brightness = 10 + Math.random() * 10;
+                    ctx.fillStyle = `rgb(${brightness}, ${brightness}, ${brightness})`;
+                    ctx.fillRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                }
+            }
+            requestAnimationFrame(drawStatic);
+        }
+
+        requestAnimationFrame(drawStatic);
+
+        document.getElementById('retune').addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = '/?uid=' + Date.now(); // Unique number to refresh cache
+        });
+    </script>
+</body>
+</html>
