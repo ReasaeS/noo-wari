@@ -5,6 +5,14 @@
   var MIN_WIDTH = 120;
   var MIN_HEIGHT = TITLE_BAR_HEIGHT + 20;
 
+  var BORDER_COLOR = "#3b414c";
+  var TITLE_BAR_COLOR = "#262a31";
+  var CONTENT_COLOR = "#2f3745";
+  var BUTTON_BORDER_COLOR = "rgba(0, 0, 0, 0.25)";
+  var CLOSE_COLOR = "#c96a63";
+  var MINIMIZE_COLOR = "#c9a45c";
+  var MAXIMIZE_COLOR = "#7faa68";
+
   var EDGES = [
     { name: "n", xFactor: 0, yFactor: -1, cursor: "ns-resize" },
     { name: "s", xFactor: 0, yFactor: 1, cursor: "ns-resize" },
@@ -53,6 +61,7 @@
     setProp("height", BUTTON_SIZE, "px");
     setProp("backgroundColor", color);
     setProp("borderStyle", "solid");
+    setProp("borderColor", BUTTON_BORDER_COLOR);
     setProp("borderWidth", 1, "px");
     setProp("borderRadius", 50, "%");
     setProp("boxSizing", "border-box");
@@ -73,9 +82,9 @@
     var setProp = makeStyler(aTitleBar).setProp;
 
     setProp("height", TITLE_BAR_HEIGHT, "px");
-    setProp("backgroundColor", "#2f2f2f");
+    setProp("backgroundColor", TITLE_BAR_COLOR);
     setProp("borderBottomStyle", "solid");
-    setProp("borderColor", "black");
+    setProp("borderColor", BORDER_COLOR);
     setProp("borderWidth", 2, "px");
     setProp("boxSizing", "border-box");
     setProp("display", "flex");
@@ -95,6 +104,7 @@
     setProp("display", "block");
     setProp("width", 100, "%");
     setProp("height", "calc(100% - " + TITLE_BAR_HEIGHT + "px)");
+    setProp("backgroundColor", CONTENT_COLOR);
     setProp("boxSizing", "border-box");
     setProp("overflow", "auto");
 
@@ -250,7 +260,6 @@
 
     setProp("width", window.innerWidth * 0.7, "px");
     setProp("height", window.innerHeight * 0.7, "px");
-    setProp("backgroundColor", "blue");
     setProp("position", "absolute");
     setProp("transform", "translate(-50%, -50%)");
     setProp("left", 50, "%");
@@ -258,7 +267,7 @@
     setProp("borderStyle", "solid");
     setProp("borderWidth", 2, "px");
     setProp("borderRadius", 5, "px");
-    setProp("borderColor", "black")
+    setProp("borderColor", BORDER_COLOR);
     setProp("boxSizing", "border-box");
     setProp("overflow", "hidden");
     setProp("display", "block");
@@ -342,9 +351,9 @@
 
     var titleBar = makeTitleBar();
 
-    titleBar.appendChild(makeButton("red", close));
-    titleBar.appendChild(makeButton("yellow", minimize));
-    titleBar.appendChild(makeButton("green", maximize));
+    titleBar.appendChild(makeButton(CLOSE_COLOR, close));
+    titleBar.appendChild(makeButton(MINIMIZE_COLOR, minimize));
+    titleBar.appendChild(makeButton(MAXIMIZE_COLOR, maximize));
 
     var content = makeContent();
 
