@@ -12,6 +12,46 @@
   var CLOSE_COLOR = "#c96a63";
   var MINIMIZE_COLOR = "#c9a45c";
   var MAXIMIZE_COLOR = "#7faa68";
+  var SCROLLBAR_HOVER_COLOR = "#4c5561";
+  var FOCUS_COLOR = "#5a6473";
+
+  var WINDOW_Z_BASE = 1;
+
+  var HUE_START = 145;
+  var HUE_STEP = 137.508;
+  var HUE_SATURATION = 45;
+  var HUE_LIGHTNESS = 62;
+
+  var SCROLLBAR_SIZE = 10;
+  var SCROLLBAR_INSET = 2;
+  var SCROLLBAR_RADIUS = 5;
+
+  var SCROLLBAR_SOURCE =
+    "@supports not selector(::-webkit-scrollbar) {\n" +
+    "  * {\n" +
+    "    scrollbar-width: thin;\n" +
+    "    scrollbar-color: " + BORDER_COLOR + " " + TITLE_BAR_COLOR + ";\n" +
+    "  }\n" +
+    "}\n" +
+    "::-webkit-scrollbar {\n" +
+    "  width: " + SCROLLBAR_SIZE + "px;\n" +
+    "  height: " + SCROLLBAR_SIZE + "px;\n" +
+    "}\n" +
+    "::-webkit-scrollbar-track {\n" +
+    "  background-color: " + TITLE_BAR_COLOR + ";\n" +
+    "}\n" +
+    "::-webkit-scrollbar-thumb {\n" +
+    "  background-color: " + BORDER_COLOR + ";\n" +
+    "  border: " + SCROLLBAR_INSET + "px solid " + TITLE_BAR_COLOR + ";\n" +
+    "  border-radius: " + SCROLLBAR_RADIUS + "px;\n" +
+    "  background-clip: padding-box;\n" +
+    "}\n" +
+    "::-webkit-scrollbar-thumb:hover {\n" +
+    "  background-color: " + SCROLLBAR_HOVER_COLOR + ";\n" +
+    "}\n" +
+    "::-webkit-scrollbar-corner {\n" +
+    "  background-color: " + TITLE_BAR_COLOR + ";\n" +
+    "}\n";
 
   var EDGES = [
     { name: "n", xFactor: 0, yFactor: -1, cursor: "ns-resize" },
@@ -23,6 +63,105 @@
     { name: "ne", xFactor: 1, yFactor: -1, cursor: "nesw-resize" },
     { name: "sw", xFactor: -1, yFactor: 1, cursor: "nesw-resize" }
   ];
+
+  var windows = [];
+  var activeDesktop = 0;
+  var activeWindow = null;
+  var windowCount = 0;
+
+  function makeWindowColor() {
+    var hue = (HUE_START + windowCount * HUE_STEP) % 360;
+
+    windowCount = windowCount + 1;
+
+    return "hsl(" + Math.round(hue) + ", " + HUE_SATURATION + "%, " + HUE_LIGHTNESS + "%)";
+  }
+
+  function indexOfWindow(aWindow) {
+    for (var i = 0; i < windows.length; i++) {
+      if (windows[i] == aWindow) {
+        return i;
+      }
+    }
+
+    return -1;
+  }
+
+  function selectDesktop(index) {
+    activeDesktop = index;
+
+    for (var i = 0; i < windows.length; i++) {
+      windows[i].present(windows[i].desktop == index);
+    }
+
+    return true;
+  }
+
+  function currentDesktop() {
+    return activeDesktop;
+  }
+
+  function currentWindow() {
+    return activeWindow;
+  }
+
+  function paintStack() {
+    for (var i = 0; i < windows.length; i++) {
+      windows[i].setStack(WINDOW_Z_BASE + windows.length - 1 - i);
+      windows[i].paintFocus(windows[i] == activeWindow);
+    }
+  }
+
+  function focusWindow(aWindow) {
+    var index = indexOfWindow(aWindow);
+
+    if (index == -1) {
+      return false;
+    }
+
+    windows.splice(index, 1);
+    windows.unshift(aWindow);
+
+    activeWindow = aWindow;
+
+    paintStack();
+
+    return true;
+  }
+
+  function listWindows(index) {
+    var found = [];
+
+    for (var i = 0; i < windows.length; i++) {
+      if (typeof index == "undefined" || windows[i].desktop == index) {
+        found.push(windows[i]);
+      }
+    }
+
+    return found;
+  }
+
+  function moveWindow(aWindow, index) {
+    if (indexOfWindow(aWindow) == -1) {
+      return false;
+    }
+
+    aWindow.desktop = index;
+
+    aWindow.present(index == activeDesktop);
+
+    return true;
+  }
+
+  function makeScrollbarStyle() {
+    var aStyle = document.createElement("style");
+
+    aStyle.textContent = SCROLLBAR_SOURCE;
+
+    document.head.appendChild(aStyle);
+
+    return aStyle;
+  }
 
   function makeStyler(anElement) {
     var elementStyle = anElement.style;
@@ -278,6 +417,46 @@
     var savedDisplay = "block";
     var savedSize = new Object();
 
+    function present(isVisible) {
+      if (isClosed) {
+        return;
+      }
+
+      if (isVisible && !isMinimized) {
+        setProp("display", savedDisplay);
+      } else {
+        setProp("display", "none");
+      }
+    }
+
+    function setStack(depth) {
+      if (isClosed) {
+        return;
+      }
+
+      setProp("zIndex", depth);
+    }
+
+    function paintFocus(isFocused) {
+      if (isClosed) {
+        return;
+      }
+
+      if (isFocused) {
+        setProp("borderColor", FOCUS_COLOR);
+      } else {
+        setProp("borderColor", BORDER_COLOR);
+      }
+    }
+
+    function restore() {
+      if (isClosed || !isMinimized) {
+        return;
+      }
+
+      minimize();
+    }
+
     function close() {
       if (isClosed) {
         return;
@@ -291,7 +470,19 @@
       aWindow.titleBar = null;
       aWindow.content = null;
 
+      var index = indexOfWindow(aWindow);
+
+      if (index != -1) {
+        windows.splice(index, 1);
+      }
+
+      if (activeWindow == aWindow) {
+        activeWindow = null;
+      }
+
       isClosed = true;
+
+      paintStack();
     }
 
     function minimize() {
@@ -306,7 +497,9 @@
         return;
       }
 
-      savedDisplay = styler.getProp("display");
+      if (styler.getProp("display") != "none") {
+        savedDisplay = styler.getProp("display");
+      }
 
       setProp("display", "none");
 
@@ -375,13 +568,37 @@
     aWindow.close = close;
     aWindow.minimize = minimize;
     aWindow.maximize = maximize;
+    aWindow.present = present;
+    aWindow.setStack = setStack;
+    aWindow.paintFocus = paintFocus;
+    aWindow.restore = restore;
+    aWindow.desktop = activeDesktop;
+    aWindow.color = makeWindowColor();
+
+    function onMouseDown() {
+      focusWindow(aWindow);
+    }
+
+    aWindow.addEventListener("mousedown", onMouseDown);
+
+    windows.push(aWindow);
 
     document.body.appendChild(aWindow);
+
+    focusWindow(aWindow);
 
     return aWindow;
   }
 
-  window.makeWindow = makeWindow;
-})();
+  makeScrollbarStyle();
 
-makeWindow();
+  window.makeWindow = makeWindow;
+  window.desktops = {
+    select: selectDesktop,
+    current: currentDesktop,
+    windows: listWindows,
+    move: moveWindow,
+    focus: focusWindow,
+    focused: currentWindow
+  };
+})();
