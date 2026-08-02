@@ -1,11 +1,11 @@
 (function () {
-  var PANEL_COLOR = "rgba(38, 42, 49, 0.95)";
-  var OVERLAY_COLOR = "rgba(6, 17, 9, 0.35)";
-  var BORDER_COLOR = "#3b414c";
-  var TEXT_COLOR = "#c5cad3";
-  var MUTED_COLOR = "#7c848f";
-  var ACCENT_COLOR = "#7fd18b";
-  var ACTIVE_COLOR = "rgba(127, 209, 139, 0.14)";
+  var PANEL_COLOR = "var(--nw-panel)";
+  var OVERLAY_COLOR = "var(--nw-veil)";
+  var BORDER_COLOR = "var(--nw-tertiary)";
+  var TEXT_COLOR = "var(--nw-text)";
+  var MUTED_COLOR = "var(--nw-muted)";
+  var ACCENT_COLOR = "var(--nw-accent)";
+  var ACTIVE_COLOR = "var(--nw-active)";
 
   var FONT_FAMILY = "\"JetBrainsMono Nerd Font\", \"JetBrains Mono\", \"Fira Code\", monospace";
   var PANEL_WIDTH = 380;

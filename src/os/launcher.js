@@ -1,27 +1,70 @@
 (function () {
-  var PANEL_COLOR = "rgba(38, 42, 49, 0.95)";
-  var ORB_COLOR = "rgba(38, 42, 49, 0.55)";
-  var OVERLAY_COLOR = "rgba(6, 17, 9, 0.55)";
-  var BORDER_COLOR = "#3b414c";
-  var TEXT_COLOR = "#c5cad3";
-  var MUTED_COLOR = "#7c848f";
-  var ACCENT_COLOR = "#7fd18b";
-  var ACTIVE_COLOR = "rgba(127, 209, 139, 0.14)";
+  var PANEL_COLOR = "var(--nw-panel)";
+  var ORB_COLOR = "var(--nw-orb)";
+  var OVERLAY_COLOR = "var(--nw-overlay)";
+  var BORDER_COLOR = "var(--nw-tertiary)";
+  var TEXT_COLOR = "var(--nw-text)";
+  var MUTED_COLOR = "var(--nw-muted)";
+  var ACCENT_COLOR = "var(--nw-accent)";
+  var ACTIVE_COLOR = "var(--nw-active)";
 
   var FONT_FAMILY = "\"JetBrainsMono Nerd Font\", \"JetBrains Mono\", \"Fira Code\", monospace";
   var PANEL_WIDTH = 520;
   var PANEL_TOP = "18vh";
   var LIST_HEIGHT = 260;
   var ORB_SIZE = 96;
+  var ORB_LOGO_SIZE = 58;
   var ORB_GLYPH = "☰";
   var ORB_HINT = "ctrl + space";
   var ORB_Z_INDEX = 0;
   var OVERLAY_Z_INDEX = 1200;
 
+  var HINT_CLASS = "nw-hint";
+  var ORB_CLASS = "nw-orb";
+
+  var ORB_SOURCE =
+    "@keyframes nw-hint-blink {\n" +
+    "  0%, 100% { opacity: 1; }\n" +
+    "  50% { opacity: 0.12; }\n" +
+    "}\n" +
+    "@keyframes nw-orb-pulse {\n" +
+    "  0% {\n" +
+    "    box-shadow: 0 0 0 0 var(--nw-active);\n" +
+    "  }\n" +
+    "  60% {\n" +
+    "    box-shadow: 0 0 0 18px rgba(0, 0, 0, 0);\n" +
+    "  }\n" +
+    "  100% {\n" +
+    "    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);\n" +
+    "  }\n" +
+    "}\n" +
+    "." + HINT_CLASS + " {\n" +
+    "  animation: nw-hint-blink 1.4s ease-in-out infinite;\n" +
+    "}\n" +
+    "." + ORB_CLASS + " {\n" +
+    "  animation: nw-orb-pulse 2.6s ease-out infinite;\n" +
+    "}\n" +
+    "@media (prefers-reduced-motion: reduce) {\n" +
+    "  ." + HINT_CLASS + ", ." + ORB_CLASS + " {\n" +
+    "    animation: none;\n" +
+    "  }\n" +
+    "}\n";
+
+  function makeOrbStyle() {
+    var aStyle = document.createElement("style");
+
+    aStyle.textContent = ORB_SOURCE;
+
+    document.head.appendChild(aStyle);
+
+    return aStyle;
+  }
+
   function makeOrb(onClick) {
     var anOrb = document.createElement("div");
     var orbStyle = anOrb.style;
 
+    var logoElement = window.logo.mark(ORB_LOGO_SIZE);
     var glyphElement = document.createElement("span");
     var hintElement = document.createElement("span");
 
@@ -29,11 +72,28 @@
     glyphElement.style.fontSize = "26px";
     glyphElement.style.lineHeight = "1";
     glyphElement.style.color = ACCENT_COLOR;
+    glyphElement.style.display = "none";
+
+    function onLogoError() {
+      logoElement.style.display = "none";
+      glyphElement.style.display = "block";
+    }
+
+    if (logoElement.image != null) {
+      logoElement.image.addEventListener("error", onLogoError);
+    }
 
     hintElement.textContent = ORB_HINT;
+    hintElement.className = HINT_CLASS;
+    hintElement.style.position = "absolute";
+    hintElement.style.top = "100%";
+    hintElement.style.left = "50%";
+    hintElement.style.transform = "translateX(-50%)";
+    hintElement.style.marginTop = "12px";
     hintElement.style.fontSize = "10px";
-    hintElement.style.marginTop = "8px";
+    hintElement.style.whiteSpace = "nowrap";
     hintElement.style.color = MUTED_COLOR;
+    hintElement.style.transition = "opacity 260ms ease";
 
     orbStyle.position = "fixed";
     orbStyle.left = "50%";
@@ -44,7 +104,6 @@
     orbStyle.borderRadius = "50%";
     orbStyle.boxSizing = "border-box";
     orbStyle.display = "flex";
-    orbStyle.flexDirection = "column";
     orbStyle.alignItems = "center";
     orbStyle.justifyContent = "center";
     orbStyle.backgroundColor = ORB_COLOR;
@@ -58,6 +117,8 @@
     orbStyle.userSelect = "none";
     orbStyle.zIndex = ORB_Z_INDEX;
 
+    anOrb.className = ORB_CLASS;
+
     function onEnter() {
       orbStyle.borderColor = ACCENT_COLOR;
     }
@@ -66,12 +127,27 @@
       orbStyle.borderColor = BORDER_COLOR;
     }
 
+    function settle() {
+      if (hintElement.style.opacity == "0") {
+        return false;
+      }
+
+      hintElement.className = "";
+      hintElement.style.opacity = "0";
+      hintElement.style.pointerEvents = "none";
+
+      return true;
+    }
+
+    anOrb.appendChild(logoElement);
     anOrb.appendChild(glyphElement);
     anOrb.appendChild(hintElement);
 
     anOrb.addEventListener("click", onClick);
     anOrb.addEventListener("mouseenter", onEnter);
     anOrb.addEventListener("mouseleave", onLeave);
+
+    anOrb.settle = settle;
 
     return anOrb;
   }
@@ -356,6 +432,8 @@
     }
 
     function open() {
+      anOrb.settle();
+
       if (isOpen) {
         return;
       }
@@ -484,6 +562,8 @@
 
     return aWindow;
   }
+
+  makeOrbStyle();
 
   var launcher = makeLauncher();
 

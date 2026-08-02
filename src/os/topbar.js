@@ -1,16 +1,12 @@
 (function () {
   var BAR_HEIGHT = 28;
-  var BAR_COLOR = "rgba(38, 42, 49, 0.88)";
-  var BORDER_COLOR = "#3b414c";
-  var TEXT_COLOR = "#c5cad3";
-  var MUTED_COLOR = "#7c848f";
-  var PILL_COLOR = "rgba(0, 0, 0, 0.22)";
+  var BAR_COLOR = "var(--nw-bar)";
+  var BORDER_COLOR = "var(--nw-tertiary)";
+  var TEXT_COLOR = "var(--nw-text)";
+  var MUTED_COLOR = "var(--nw-muted)";
+  var PILL_COLOR = "var(--nw-field)";
 
-  var ACCENT_GREEN = "#7fd18b";
-  var ACCENT_BLUE = "#7aa2e0";
-  var ACCENT_YELLOW = "#d6b46a";
-  var ACCENT_RED = "#d1796f";
-  var ACCENT_PURPLE = "#a98fd1";
+  var ACCENT_GREEN = "var(--nw-accent)";
 
   var FONT_FAMILY = "\"JetBrainsMono Nerd Font\", \"JetBrains Mono\", \"Fira Code\", monospace";
   var FONT_SIZE = 12;
@@ -39,94 +35,6 @@
     var now = new Date();
 
     return pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
-  }
-
-  function readMemory() {
-    var memory = window.performance.memory;
-
-    if (typeof memory == "undefined") {
-      return "n/a";
-    }
-
-    return Math.round(memory.usedJSHeapSize / 1048576) + "M";
-  }
-
-  function readThreads() {
-    var threads = navigator.hardwareConcurrency;
-
-    if (typeof threads == "undefined") {
-      return "n/a";
-    }
-
-    return threads + "T";
-  }
-
-  function readNetwork() {
-    if (!navigator.onLine) {
-      return "offline";
-    }
-
-    var connection = navigator.connection;
-
-    if (typeof connection == "undefined" || connection == null) {
-      return "online";
-    }
-
-    return connection.effectiveType;
-  }
-
-  function makeFrameReader() {
-    var frames = 0;
-    var lastTime = 0;
-    var rate = 0;
-
-    function tick(now) {
-      frames = frames + 1;
-
-      if (lastTime == 0) {
-        lastTime = now;
-      }
-
-      if (now - lastTime >= 1000) {
-        rate = Math.round((frames * 1000) / (now - lastTime));
-
-        frames = 0;
-        lastTime = now;
-      }
-
-      window.requestAnimationFrame(tick);
-    }
-
-    window.requestAnimationFrame(tick);
-
-    return function () {
-      return "" + rate;
-    };
-  }
-
-  function watchBattery(aModule) {
-    if (typeof navigator.getBattery != "function") {
-      aModule.valueElement.textContent = "n/a";
-
-      return;
-    }
-
-    navigator.getBattery().then(function (battery) {
-      function update() {
-        var level = Math.round(battery.level * 100) + "%";
-
-        if (battery.charging) {
-          level = level + " +";
-        }
-
-        aModule.valueElement.textContent = level;
-      }
-
-      battery.addEventListener("levelchange", update);
-      battery.addEventListener("chargingchange", update);
-
-      update();
-    });
   }
 
   function makeBar() {
@@ -256,7 +164,7 @@
         var workspaceStyle = workspaces[i].style;
 
         if (i == activeIndex) {
-          workspaceStyle.color = BAR_COLOR;
+          workspaceStyle.color = "var(--nw-primary)";
           workspaceStyle.backgroundColor = ACCENT_GREEN;
         } else {
           workspaceStyle.color = MUTED_COLOR;
@@ -408,15 +316,6 @@
   }
 
   var topbar = makeTopBar();
-
-  topbar.setTitle("noo-wari");
-
-  topbar.addModule("fps", ACCENT_PURPLE, makeFrameReader());
-  topbar.addModule("cpu", ACCENT_BLUE, readThreads);
-  topbar.addModule("mem", ACCENT_BLUE, readMemory);
-  topbar.addModule("net", ACCENT_YELLOW, readNetwork);
-
-  watchBattery(topbar.addModule("bat", ACCENT_RED, null));
 
   topbar.addModule("date", ACCENT_GREEN, readDate);
   topbar.addModule("time", ACCENT_GREEN, readClock);

@@ -2329,12 +2329,33 @@ sub write_all {
     return $offset == $length ? 1 : 0;
 }
 
+sub is_app_route {
+    my ($file_path) = @_;
+
+    return 0 unless -f $INDEX_FILE && -r _;
+
+    my $relative = substr($file_path, length($REAL_WEB_ROOT));
+    $relative =~ s{^/+}{};
+    $relative =~ s{/+$}{};
+
+    return 0 if $relative eq '';
+    return 0 if $relative =~ m{/};
+    return 0 if $relative =~ /\./;
+
+    return 1;
+}
+
 sub serve_file {
     my ($client, $file_path, $client_ip) = @_;
 
     return serve_403($client, $client_ip, $file_path) unless path_within_root($file_path);
 
     unless (-f $file_path && -r _) {
+        if (is_app_route($file_path)) {
+            serve_static($client, $INDEX_FILE, $client_ip, 200, "OK");
+            return;
+        }
+
         serve_404($client, $client_ip, $file_path);
         return;
     }

@@ -5,15 +5,15 @@
   var MIN_WIDTH = 120;
   var MIN_HEIGHT = TITLE_BAR_HEIGHT + 20;
 
-  var BORDER_COLOR = "#3b414c";
-  var TITLE_BAR_COLOR = "#262a31";
-  var CONTENT_COLOR = "#2f3745";
+  var BORDER_COLOR = "var(--nw-tertiary)";
+  var TITLE_BAR_COLOR = "var(--nw-primary)";
+  var CONTENT_COLOR = "var(--nw-secondary)";
   var BUTTON_BORDER_COLOR = "rgba(0, 0, 0, 0.25)";
-  var CLOSE_COLOR = "#c96a63";
-  var MINIMIZE_COLOR = "#c9a45c";
-  var MAXIMIZE_COLOR = "#7faa68";
-  var SCROLLBAR_HOVER_COLOR = "#4c5561";
-  var FOCUS_COLOR = "#5a6473";
+  var CLOSE_COLOR = "var(--nw-danger)";
+  var MINIMIZE_COLOR = "var(--nw-warn)";
+  var MAXIMIZE_COLOR = "var(--nw-ok)";
+  var SCROLLBAR_HOVER_COLOR = "var(--nw-hover)";
+  var FOCUS_COLOR = "var(--nw-focus)";
 
   var WINDOW_Z_BASE = 1;
 
@@ -25,6 +25,32 @@
   var SCROLLBAR_SIZE = 10;
   var SCROLLBAR_INSET = 2;
   var SCROLLBAR_RADIUS = 5;
+
+  var CONTROL_TEXT_COLOR = "var(--nw-text)";
+  var CONTROL_ACTIVE_COLOR = "var(--nw-accent)";
+  var CONTROL_POPUP_COLOR = "var(--nw-primary)";
+
+  var CONTROL_SOURCE =
+    ":root {\n" +
+    "  color-scheme: dark;\n" +
+    "}\n" +
+    "select {\n" +
+    "  color: " + CONTROL_TEXT_COLOR + ";\n" +
+    "}\n" +
+    "select option {\n" +
+    "  background-color: " + CONTROL_POPUP_COLOR + ";\n" +
+    "  color: " + CONTROL_TEXT_COLOR + ";\n" +
+    "}\n" +
+    "select option:checked {\n" +
+    "  background-color: " + BORDER_COLOR + ";\n" +
+    "  color: " + CONTROL_ACTIVE_COLOR + ";\n" +
+    "}\n" +
+    "select option:disabled {\n" +
+    "  color: " + SCROLLBAR_HOVER_COLOR + ";\n" +
+    "}\n" +
+    "input::placeholder, textarea::placeholder {\n" +
+    "  color: " + SCROLLBAR_HOVER_COLOR + ";\n" +
+    "}\n";
 
   var SCROLLBAR_SOURCE =
     "@supports not selector(::-webkit-scrollbar) {\n" +
@@ -153,10 +179,10 @@
     return true;
   }
 
-  function makeScrollbarStyle() {
+  function makeThemeStyle() {
     var aStyle = document.createElement("style");
 
-    aStyle.textContent = SCROLLBAR_SOURCE;
+    aStyle.textContent = SCROLLBAR_SOURCE + CONTROL_SOURCE;
 
     document.head.appendChild(aStyle);
 
@@ -391,14 +417,22 @@
     return aResizer;
   }
 
-  function makeWindow() {
+  function makeWindow(width, height) {
     var aWindow = document.createElement("div");
 
     var styler = makeStyler(aWindow);
     var setProp = styler.setProp;
 
-    setProp("width", window.innerWidth * 0.7, "px");
-    setProp("height", window.innerHeight * 0.7, "px");
+    if (typeof width == "undefined") {
+      width = window.innerWidth * 0.7;
+    }
+
+    if (typeof height == "undefined") {
+      height = window.innerHeight * 0.7;
+    }
+
+    setProp("width", width, "px");
+    setProp("height", height, "px");
     setProp("position", "absolute");
     setProp("transform", "translate(-50%, -50%)");
     setProp("left", 50, "%");
@@ -544,9 +578,21 @@
 
     var titleBar = makeTitleBar();
 
-    titleBar.appendChild(makeButton(CLOSE_COLOR, close));
-    titleBar.appendChild(makeButton(MINIMIZE_COLOR, minimize));
-    titleBar.appendChild(makeButton(MAXIMIZE_COLOR, maximize));
+    function closeWindow() {
+      aWindow.close();
+    }
+
+    function minimizeWindow() {
+      aWindow.minimize();
+    }
+
+    function maximizeWindow() {
+      aWindow.maximize();
+    }
+
+    titleBar.appendChild(makeButton(CLOSE_COLOR, closeWindow));
+    titleBar.appendChild(makeButton(MINIMIZE_COLOR, minimizeWindow));
+    titleBar.appendChild(makeButton(MAXIMIZE_COLOR, maximizeWindow));
 
     var content = makeContent();
 
@@ -590,7 +636,7 @@
     return aWindow;
   }
 
-  makeScrollbarStyle();
+  makeThemeStyle();
 
   window.makeWindow = makeWindow;
   window.desktops = {

@@ -22,9 +22,9 @@
     "uniform float uTime;\n" +
     "uniform vec2 uMouse;\n";
 
-  var PS3_COLOR = "#061109";
+  var FLORAL_COLOR = "#061109";
 
-  var PS3_SHADER_SOURCE =
+  var FLORAL_SHADER_SOURCE =
     "const float PI = 3.14159265;\n" +
     "const float TAU = 6.28318531;\n" +
     "float xmbBranch(float r, float a, float angle, float speed, float amplitude, float thickness, float root, float tip) {\n" +
@@ -54,6 +54,42 @@
     "    amount += pow(xmbBranch(r, a, base - 0.45, 0.32, 0.26, 0.007, 0.34, 0.62), 2.0) * 0.28;\n" +
     "  }\n" +
     "  color += vec3(0.20, 0.85, 0.35) * amount * 0.35;\n" +
+    "  float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);\n" +
+    "  color += (grain - 0.5) * 0.006;\n" +
+    "  gl_FragColor = vec4(color, 1.0);\n" +
+    "}\n";
+
+  var XMB_COLOR = "#050a16";
+
+  var XMB_SHADER_SOURCE =
+    "float xmbStrand(vec2 uv, float phase, float speed, float amplitude, float thickness, float base) {\n" +
+    "  float y = base;\n" +
+    "  y += sin(uv.x * 2.3 + uTime * speed + phase) * amplitude;\n" +
+    "  y += sin(uv.x * 5.1 - uTime * speed * 0.55 + phase * 1.7) * amplitude * 0.42;\n" +
+    "  y += sin(uv.x * 9.7 + uTime * speed * 0.30 + phase * 2.3) * amplitude * 0.18;\n" +
+    "  return thickness / (abs(uv.y - y) + thickness);\n" +
+    "}\n" +
+    "void main() {\n" +
+    "  vec2 uv = gl_FragCoord.xy / uResolution;\n" +
+    "  vec3 deep = vec3(0.004, 0.010, 0.030);\n" +
+    "  vec3 high = vec3(0.020, 0.055, 0.115);\n" +
+    "  vec3 color = mix(deep, high, smoothstep(0.0, 1.0, uv.y));\n" +
+    "  color += vec3(0.015, 0.040, 0.080) * exp(-abs(uv.y - 0.52) * 5.5);\n" +
+    "  float band = 0.0;\n" +
+    "  for (int i = 0; i < 16; i++) {\n" +
+    "    float fi = float(i) / 15.0;\n" +
+    "    float base = 0.52 + (fi - 0.5) * 0.16;\n" +
+    "    float amplitude = 0.030 + fi * 0.022;\n" +
+    "    float speed = 0.09 + fi * 0.05;\n" +
+    "    float thickness = 0.0014 + fi * 0.0011;\n" +
+    "    float weight = 1.0 - abs(fi - 0.5) * 1.3;\n" +
+    "    band += pow(xmbStrand(uv, fi * 6.3, speed, amplitude, thickness, base), 1.5) * weight;\n" +
+    "  }\n" +
+    "  band = min(band / 5.0, 1.0);\n" +
+    "  float edge = smoothstep(0.0, 0.22, uv.x) * smoothstep(1.0, 0.78, uv.x);\n" +
+    "  band *= 0.30 + 0.70 * edge;\n" +
+    "  vec3 glow = mix(vec3(0.20, 0.50, 0.95), vec3(0.80, 0.92, 1.00), min(band * 3.0, 1.0));\n" +
+    "  color += glow * band * 1.6;\n" +
     "  float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);\n" +
     "  color += (grain - 0.5) * 0.006;\n" +
     "  gl_FragColor = vec4(color, 1.0);\n" +
@@ -579,6 +615,20 @@
       return currentName;
     }
 
+    function sourceOf(name) {
+      var aBackground = entries[name];
+
+      if (typeof aBackground == "undefined") {
+        return "";
+      }
+
+      if (typeof aBackground.shader == "undefined") {
+        return "";
+      }
+
+      return aBackground.shader;
+    }
+
     function list() {
       return names.slice(0);
     }
@@ -588,6 +638,7 @@
       gradient: makeGradient,
       image: makeImage,
       shader: makeShader,
+      source: sourceOf,
       supportsShaders: supportsShaders,
       error: error,
       add: add,
@@ -611,12 +662,17 @@
   );
 
   backgrounds.add(
+    "floral",
+    makeShader(FLORAL_SHADER_SOURCE, FLORAL_COLOR)
+  );
+
+  backgrounds.add(
     "ps3",
-    makeShader(PS3_SHADER_SOURCE, PS3_COLOR)
+    makeShader(XMB_SHADER_SOURCE, XMB_COLOR)
   );
 
   if (backgrounds.supportsShaders()) {
-    backgrounds.select("ps3");
+    backgrounds.select("floral");
   }
 
   window.makeBackgrounds = makeBackgrounds;

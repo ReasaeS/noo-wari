@@ -1,9 +1,10 @@
 (function () {
-  var TEXT_COLOR = "#c5cad3";
-  var MUTED_COLOR = "#7c848f";
-  var ACCENT_COLOR = "#7fd18b";
-  var BORDER_COLOR = "#3b414c";
-  var FIELD_COLOR = "rgba(0, 0, 0, 0.22)";
+  var TEXT_COLOR = "var(--nw-text)";
+  var MUTED_COLOR = "var(--nw-muted)";
+  var ACCENT_COLOR = "var(--nw-accent)";
+  var BORDER_COLOR = "var(--nw-tertiary)";
+  var FIELD_COLOR = "var(--nw-field)";
+  var SELECT_COLOR = "var(--nw-select)";
 
   var FONT_FAMILY = "\"JetBrainsMono Nerd Font\", \"JetBrains Mono\", \"Fira Code\", monospace";
   var WINDOW_WIDTH = 460;
@@ -115,7 +116,7 @@
 
     selectStyle.minWidth = "140px";
     selectStyle.padding = "4px 8px";
-    selectStyle.backgroundColor = FIELD_COLOR;
+    selectStyle.backgroundColor = SELECT_COLOR;
     selectStyle.borderStyle = "solid";
     selectStyle.borderWidth = "1px";
     selectStyle.borderColor = BORDER_COLOR;
@@ -252,6 +253,15 @@
         window.location.reload();
       }
 
+      var themeRow = makeRow("palette");
+
+      themeRow.appendChild(
+        makeSelect(window.theme.list(), window.theme.current(), window.theme.select)
+      );
+
+      aSheet.appendChild(makeHeading("theme"));
+      aSheet.appendChild(themeRow);
+
       aSheet.appendChild(makeHeading("shell"));
       aSheet.appendChild(makeToggleRow("top bar", readTopBar, writeTopBar));
       aSheet.appendChild(makeToggleRow("fullscreen", readFullscreen, writeFullscreen));
@@ -267,10 +277,7 @@
 
       painters = [];
 
-      configWindow = window.makeWindow();
-
-      configWindow.style.width = WINDOW_WIDTH + "px";
-      configWindow.style.height = WINDOW_HEIGHT + "px";
+      configWindow = window.makeWindow(WINDOW_WIDTH, WINDOW_HEIGHT);
 
       configWindow.titleBar.appendChild(makeTitle("config"));
 
