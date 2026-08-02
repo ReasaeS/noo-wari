@@ -398,5 +398,5 @@
     return stop;
   }
 
-  window.makeApp("tetris", "stack the falling blocks", 380, 560, build);
+  window.makeApp("tetris", "stack the falling blocks", 380, 560, build, "games");
 })();

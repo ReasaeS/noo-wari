@@ -280,5 +280,5 @@
     return null;
   }
 
-  window.makeApp("calculator", "arithmetic with keyboard input", 300, 400, build);
+  window.makeApp("calculator", "arithmetic with keyboard input", 300, 400, build, "tools");
 })();

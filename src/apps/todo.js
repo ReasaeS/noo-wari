@@ -233,5 +233,5 @@
     return null;
   }
 
-  window.makeApp("todo", "task list saved locally", 440, 460, build);
+  window.makeApp("todo", "task list saved locally", 440, 460, build, "tools");
 })();

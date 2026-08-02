@@ -131,5 +131,5 @@
     return teardown;
   }
 
-  window.makeApp("matrix", "falling glyph screensaver", 560, 420, build);
+  window.makeApp("matrix", "falling glyph screensaver", 560, 420, build, "art");
 })();

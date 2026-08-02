@@ -358,5 +358,5 @@
     return stopClock;
   }
 
-  window.makeApp("minesweeper", "classic mine clearing grid", 560, 480, build);
+  window.makeApp("minesweeper", "classic mine clearing grid", 560, 480, build, "games");
 })();

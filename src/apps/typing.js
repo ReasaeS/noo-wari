@@ -204,5 +204,5 @@
     return stop;
   }
 
-  window.makeApp("typing", "words per minute test", 560, 400, build);
+  window.makeApp("typing", "words per minute test", 560, 400, build, "games");
 })();

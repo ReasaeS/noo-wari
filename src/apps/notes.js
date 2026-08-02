@@ -247,5 +247,5 @@
     return persist;
   }
 
-  window.makeApp("notes", "notepad with local storage", 620, 420, build);
+  window.makeApp("notes", "notepad with local storage", 620, 420, build, "tools");
 })();

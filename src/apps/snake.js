@@ -294,5 +294,5 @@
     return stop;
   }
 
-  window.makeApp("snake", "arrow keys, eat and grow", 420, 480, build);
+  window.makeApp("snake", "arrow keys, eat and grow", 420, 480, build, "games");
 })();

@@ -19,6 +19,9 @@
   var ORB_Z_INDEX = 0;
   var OVERLAY_Z_INDEX = 1200;
 
+  var CATEGORY_ORDER = ["system", "games", "art", "audio", "tools"];
+  var DEFAULT_CATEGORY = "misc";
+
   var HINT_CLASS = "nw-hint";
   var ORB_CLASS = "nw-orb";
 
@@ -214,6 +217,7 @@
 
     aPrompt.textContent = "❯";
 
+    promptStyle.flexShrink = 0;
     promptStyle.color = ACCENT_COLOR;
     promptStyle.fontSize = "14px";
     promptStyle.marginRight = "10px";
@@ -316,6 +320,8 @@
 
     var activeIndex = 0;
     var isOpen = false;
+    var path = "";
+    var aPrompt = makePrompt();
 
     function indexOfApp(name) {
       for (var i = 0; i < apps.length; i++) {
@@ -327,16 +333,87 @@
       return -1;
     }
 
-    function register(name, description, run) {
+    function register(name, description, run, category) {
       var anApp = new Object();
 
       anApp.name = name;
       anApp.description = description;
       anApp.run = run;
+      anApp.category = DEFAULT_CATEGORY;
+
+      if (typeof category == "string" && category != "") {
+        anApp.category = category;
+      }
 
       apps.push(anApp);
 
       return anApp;
+    }
+
+    function categoryOf(anApp) {
+      if (typeof anApp.category == "string" && anApp.category != "") {
+        return anApp.category;
+      }
+
+      return DEFAULT_CATEGORY;
+    }
+
+    function countIn(name) {
+      var total = 0;
+
+      for (var i = 0; i < apps.length; i++) {
+        if (categoryOf(apps[i]) == name) {
+          total = total + 1;
+        }
+      }
+
+      return total;
+    }
+
+    function makeCategoryEntry(name) {
+      var anEntry = new Object();
+
+      anEntry.kind = "category";
+      anEntry.name = name;
+      anEntry.description = countIn(name) + " apps  ›";
+
+      return anEntry;
+    }
+
+    function makeAppEntry(anApp) {
+      var anEntry = new Object();
+
+      anEntry.kind = "app";
+      anEntry.name = anApp.name;
+      anEntry.description = anApp.description;
+      anEntry.app = anApp;
+
+      return anEntry;
+    }
+
+    function categories() {
+      var found = [];
+      var seen = new Object();
+
+      for (var i = 0; i < CATEGORY_ORDER.length; i++) {
+        if (countIn(CATEGORY_ORDER[i]) > 0) {
+          found.push(makeCategoryEntry(CATEGORY_ORDER[i]));
+
+          seen[CATEGORY_ORDER[i]] = true;
+        }
+      }
+
+      for (var j = 0; j < apps.length; j++) {
+        var name = categoryOf(apps[j]);
+
+        if (typeof seen[name] == "undefined") {
+          found.push(makeCategoryEntry(name));
+
+          seen[name] = true;
+        }
+      }
+
+      return found;
     }
 
     function unregister(name) {
@@ -380,15 +457,25 @@
     }
 
     function refresh() {
-      var query = anInput.value.toLowerCase();
+      var query = anInput.value.trim().toLowerCase();
 
       matches = [];
 
-      for (var i = 0; i < apps.length; i++) {
-        var haystack = (apps[i].name + " " + apps[i].description).toLowerCase();
+      if (query != "") {
+        for (var i = 0; i < apps.length; i++) {
+          var haystack = (apps[i].name + " " + apps[i].description).toLowerCase();
 
-        if (haystack.indexOf(query) != -1) {
-          matches.push(apps[i]);
+          if (haystack.indexOf(query) != -1) {
+            matches.push(makeAppEntry(apps[i]));
+          }
+        }
+      } else if (path == "") {
+        matches = categories();
+      } else {
+        for (var j = 0; j < apps.length; j++) {
+          if (categoryOf(apps[j]) == path) {
+            matches.push(makeAppEntry(apps[j]));
+          }
         }
       }
 
@@ -396,7 +483,29 @@
         activeIndex = 0;
       }
 
+      paintPrompt();
       paint();
+    }
+
+    function paintPrompt() {
+      if (path == "" || anInput.value.trim() != "") {
+        aPrompt.textContent = "❯";
+      } else {
+        aPrompt.textContent = path + " ❯";
+      }
+    }
+
+    function ascend() {
+      if (path == "") {
+        return false;
+      }
+
+      path = "";
+      activeIndex = 0;
+
+      refresh();
+
+      return true;
     }
 
     function run(index) {
@@ -404,11 +513,23 @@
         return false;
       }
 
-      var anApp = matches[index];
+      var anEntry = matches[index];
+
+      if (anEntry.kind == "category") {
+        path = anEntry.name;
+        activeIndex = 0;
+
+        anInput.value = "";
+
+        refresh();
+        anInput.focus();
+
+        return true;
+      }
 
       close();
 
-      anApp.run();
+      anEntry.app.run();
 
       return true;
     }
@@ -443,6 +564,7 @@
       anOverlay.style.display = "flex";
       anInput.value = "";
 
+      path = "";
       activeIndex = 0;
 
       refresh();
@@ -486,7 +608,19 @@
       if (event.key == "Escape") {
         event.preventDefault();
 
-        close();
+        if (anInput.value != "") {
+          anInput.value = "";
+
+          refresh();
+        } else if (!ascend()) {
+          close();
+        }
+      }
+
+      if (event.key == "Backspace" && anInput.value == "") {
+        if (ascend()) {
+          event.preventDefault();
+        }
       }
 
       if (event.key == "ArrowDown") {
@@ -516,7 +650,7 @@
 
     var anOrb = makeOrb(open);
 
-    aField.appendChild(makePrompt());
+    aField.appendChild(aPrompt);
     aField.appendChild(anInput);
 
     aPanel.appendChild(aField);
@@ -569,11 +703,11 @@
 
   launcher.register("window", "open an empty window", function () {
     openWindow("window");
-  });
+  }, "system");
 
   launcher.register("config", "wallpaper, top bar and session settings", function () {
     window.config.open();
-  });
+  }, "system");
 
   window.makeLauncher = makeLauncher;
   window.launcher = launcher;

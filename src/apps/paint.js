@@ -194,5 +194,5 @@
     return null;
   }
 
-  window.makeApp("paint", "canvas drawing with shapes", 600, 480, build);
+  window.makeApp("paint", "canvas drawing with shapes", 600, 480, build, "art");
 })();

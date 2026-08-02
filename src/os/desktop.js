@@ -978,7 +978,18 @@
 
     document.addEventListener("mousedown", onGlobalDown);
 
-    document.body.appendChild(layer);
+    var anchor = null;
+
+    if (typeof window.launcher != "undefined") {
+      anchor = window.launcher.orb;
+    }
+
+    if (anchor != null && anchor.parentNode == document.body) {
+      document.body.insertBefore(layer, anchor);
+    } else {
+      document.body.appendChild(layer);
+    }
+
     document.body.appendChild(aMenu);
 
     items = loadItems();

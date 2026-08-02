@@ -207,5 +207,5 @@
     return teardown;
   }
 
-  window.makeApp("clock", "analog clock and stopwatch", 380, 460, build);
+  window.makeApp("clock", "analog clock and stopwatch", 380, 460, build, "tools");
 })();

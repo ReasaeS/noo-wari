@@ -280,5 +280,5 @@
     return null;
   }
 
-  window.makeApp("colors", "palette picker with harmonies", 460, 520, build);
+  window.makeApp("colors", "palette picker with harmonies", 460, 520, build, "art");
 })();

@@ -173,5 +173,5 @@
     return stop;
   }
 
-  window.makeApp("sysinfo", "what the browser will admit to", 480, 520, build);
+  window.makeApp("sysinfo", "what the browser will admit to", 480, 520, build, "system");
 })();

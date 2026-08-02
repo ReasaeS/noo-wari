@@ -337,5 +337,5 @@
     return null;
   }
 
-  window.makeApp("terminal", "shell for driving the os", 620, 420, build);
+  window.makeApp("terminal", "shell for driving the os", 620, 420, build, "system");
 })();

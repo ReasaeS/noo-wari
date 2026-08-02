@@ -287,5 +287,5 @@
     return stop;
   }
 
-  window.makeApp("life", "conway's game of life", 620, 480, build);
+  window.makeApp("life", "conway's game of life", 620, 480, build, "games");
 })();

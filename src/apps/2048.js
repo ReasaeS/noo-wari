@@ -333,5 +333,5 @@
     return null;
   }
 
-  window.makeApp("2048", "slide and merge the tiles", 400, 480, build);
+  window.makeApp("2048", "slide and merge the tiles", 400, 480, build, "games");
 })();

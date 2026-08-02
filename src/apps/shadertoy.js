@@ -210,5 +210,5 @@
     return null;
   }
 
-  window.makeApp("shadertoy", "live editor for the desktop shader", 620, 500, build);
+  window.makeApp("shadertoy", "live editor for the desktop shader", 620, 500, build, "art");
 })();

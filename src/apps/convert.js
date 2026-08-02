@@ -251,5 +251,5 @@
     return null;
   }
 
-  window.makeApp("convert", "units, data sizes and temperature", 440, 420, build);
+  window.makeApp("convert", "units, data sizes and temperature", 440, 420, build, "tools");
 })();

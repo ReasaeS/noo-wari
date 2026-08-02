@@ -262,5 +262,5 @@
     return teardown;
   }
 
-  window.makeApp("breakout", "mouse paddle, break the wall", 520, 480, build);
+  window.makeApp("breakout", "mouse paddle, break the wall", 520, 480, build, "games");
 })();

@@ -238,5 +238,5 @@
     return teardown;
   }
 
-  window.makeApp("memory", "match the hidden pairs", 480, 440, build);
+  window.makeApp("memory", "match the hidden pairs", 480, 440, build, "games");
 })();

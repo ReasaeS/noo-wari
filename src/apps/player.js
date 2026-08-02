@@ -401,5 +401,5 @@
     return teardown;
   }
 
-  window.makeApp("player", "chiptune player with visualiser", 520, 420, build);
+  window.makeApp("player", "chiptune player with visualiser", 520, 420, build, "audio");
 })();

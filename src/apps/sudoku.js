@@ -332,5 +332,5 @@
     return null;
   }
 
-  window.makeApp("sudoku", "generated puzzles with checking", 420, 480, build);
+  window.makeApp("sudoku", "generated puzzles with checking", 420, 480, build, "games");
 })();

@@ -325,5 +325,5 @@
     return teardown;
   }
 
-  window.makeApp("piano", "playable synth keyboard", 640, 300, build);
+  window.makeApp("piano", "playable synth keyboard", 640, 300, build, "audio");
 })();

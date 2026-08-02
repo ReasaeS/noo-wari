@@ -266,7 +266,7 @@
     return text;
   }
 
-  function makeApp(name, description, width, height, build) {
+  function makeApp(name, description, width, height, build, category) {
     var appWindow = null;
     var teardown = null;
 
@@ -342,7 +342,7 @@
       return true;
     }
 
-    window.launcher.register(name, description, open);
+    window.launcher.register(name, description, open, category);
 
     return {
       open: open,
