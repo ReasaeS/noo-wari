@@ -3,7 +3,7 @@
 
   function loadNotes() {
     try {
-      var raw = window.localStorage.getItem(STORAGE_KEY);
+      var raw = window.storage.get(STORAGE_KEY);
 
       if (raw == null) {
         return [];
@@ -23,7 +23,7 @@
 
   function saveNotes(notes) {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+      window.storage.set(STORAGE_KEY, JSON.stringify(notes));
 
       return true;
     } catch (error) {

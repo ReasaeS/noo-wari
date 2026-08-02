@@ -4,7 +4,7 @@
 
   function loadTasks() {
     try {
-      var raw = window.localStorage.getItem(STORAGE_KEY);
+      var raw = window.storage.get(STORAGE_KEY);
 
       if (raw == null) {
         return [];
@@ -24,7 +24,7 @@
 
   function saveTasks(tasks) {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      window.storage.set(STORAGE_KEY, JSON.stringify(tasks));
 
       return true;
     } catch (error) {

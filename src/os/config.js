@@ -1,5 +1,6 @@
 (function () {
   var TEXT_COLOR = "var(--nw-text)";
+  var DANGER_COLOR = "var(--nw-danger)";
   var MUTED_COLOR = "var(--nw-muted)";
   var ACCENT_COLOR = "var(--nw-accent)";
   var BORDER_COLOR = "var(--nw-tertiary)";
@@ -10,6 +11,8 @@
   var WINDOW_WIDTH = 460;
   var WINDOW_HEIGHT = 340;
   var CYCLE_INTERVAL = 30000;
+  var STORAGE_PREFIX = "noo-wari.";
+  var ARM_TIMEOUT = 4000;
 
   function makeTitle(text) {
     var aTitle = document.createElement("span");
@@ -262,10 +265,105 @@
       aSheet.appendChild(makeHeading("theme"));
       aSheet.appendChild(themeRow);
 
+      var armTimer = 0;
+
+      function storageKeys() {
+        var found = [];
+
+        try {
+          for (var i = 0; i < window.localStorage.length; i++) {
+            var key = window.localStorage.key(i);
+
+            if (key.indexOf(STORAGE_PREFIX) == 0) {
+              found.push(key);
+            }
+          }
+        } catch (error) {
+          return [];
+        }
+
+        return found;
+      }
+
+      function wipeStorage() {
+        var doomed = storageKeys();
+
+        for (var i = 0; i < doomed.length; i++) {
+          window.localStorage.removeItem(doomed[i]);
+        }
+
+        return doomed.length;
+      }
+
+      function makeDangerRow() {
+        var aRow = makeRow("reset storage");
+        var aButton = makeButton("reset", null);
+        var isArmed = false;
+
+        aButton.style.color = DANGER_COLOR;
+        aButton.style.borderColor = DANGER_COLOR;
+
+        function disarm() {
+          isArmed = false;
+
+          aButton.textContent = "reset";
+
+          if (armTimer != 0) {
+            clearTimeout(armTimer);
+
+            armTimer = 0;
+          }
+        }
+
+        function onClick() {
+          if (!isArmed) {
+            isArmed = true;
+
+            aButton.textContent = "confirm?";
+
+            armTimer = setTimeout(disarm, ARM_TIMEOUT);
+
+            return;
+          }
+
+          disarm();
+          wipeStorage();
+
+          window.location.reload();
+        }
+
+        aButton.addEventListener("click", onClick);
+
+        aRow.appendChild(aButton);
+
+        return aRow;
+      }
+
       aSheet.appendChild(makeHeading("shell"));
       aSheet.appendChild(makeToggleRow("top bar", readTopBar, writeTopBar));
       aSheet.appendChild(makeToggleRow("fullscreen", readFullscreen, writeFullscreen));
       aSheet.appendChild(makeActionRow("session", "reload", onReload));
+
+      function readAssets() {
+        return window.assets.isEnabled();
+      }
+
+      function writeAssets() {
+        window.assets.toggle();
+      }
+
+      function readPersist() {
+        return window.storage.isEnabled();
+      }
+
+      function writePersist() {
+        window.storage.toggle();
+      }
+
+      aSheet.appendChild(makeHeading("danger"));
+      aSheet.appendChild(makeToggleRow("asset cache", readAssets, writeAssets));
+      aSheet.appendChild(makeToggleRow("save data", readPersist, writePersist));
+      aSheet.appendChild(makeDangerRow());
     }
 
     function open() {
