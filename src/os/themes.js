@@ -9,6 +9,15 @@
   var DEFAULT_ANGLE = 180;
   var DEFAULT_FIT = "cover";
 
+  var PRESET_PAPERS = {
+    "noo-wari": "floral",
+    nord: "aurora",
+    ember: "forge",
+    orchid: "bloom",
+    mono: "drift",
+    abyss: "trench"
+  };
+
   function copyPalette(source) {
     var roles = window.theme.roles();
     var palette = new Object();
@@ -305,6 +314,12 @@
         return false;
       }
 
+      var skin = PRESET_PAPERS[name];
+
+      if (typeof skin == "string") {
+        dress({ kind: "named", name: skin });
+      }
+
       activeName = name;
 
       store();
@@ -327,6 +342,14 @@
 
     function kinds() {
       return KINDS.slice(0);
+    }
+
+    function paperFor(name) {
+      if (typeof PRESET_PAPERS[name] != "string") {
+        return "";
+      }
+
+      return PRESET_PAPERS[name];
     }
 
     function wallpapers() {
@@ -374,6 +397,7 @@
       dress: dress,
       blank: copyPaper,
       kinds: kinds,
+      paperFor: paperFor,
       wallpapers: wallpapers,
       fits: fits,
       watch: watch,

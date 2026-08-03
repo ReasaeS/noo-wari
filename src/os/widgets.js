@@ -1,5 +1,6 @@
 (function () {
   var STORAGE_KEY = "noo-wari.widgets";
+  var SEEDED_KEY = "noo-wari.widgets.seeded";
   var LAYER_Z_INDEX = 0;
   var MENU_Z_INDEX = 1300;
   var EDGE_MARGIN = 14;
@@ -603,18 +604,59 @@
       return true;
     }
 
-    function boot() {
-      if (restore()) {
-        return true;
+    function sown() {
+      var raw = window.storage.get(SEEDED_KEY);
+
+      if (raw == null) {
+        return [];
       }
 
-      for (var i = 0; i < order.length; i++) {
-        if (kinds[order[i]].seed) {
-          add(order[i], { id: order[i] });
+      try {
+        var parsed = JSON.parse(raw);
+
+        if (!(parsed instanceof Array)) {
+          return [];
+        }
+
+        return parsed;
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function wasSown(planted, kind) {
+      for (var i = 0; i < planted.length; i++) {
+        if (planted[i] == kind) {
+          return true;
         }
       }
 
-      store();
+      return false;
+    }
+
+    function boot() {
+      restore();
+
+      var planted = sown();
+      var added = false;
+
+      for (var i = 0; i < order.length; i++) {
+        if (!kinds[order[i]].seed || wasSown(planted, order[i])) {
+          continue;
+        }
+
+        add(order[i], { id: order[i] });
+
+        planted.push(order[i]);
+
+        added = true;
+      }
+
+      if (added) {
+        window.storage.set(SEEDED_KEY, JSON.stringify(planted));
+
+        store();
+      }
 
       return true;
     }
