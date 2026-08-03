@@ -33,7 +33,11 @@
     var aSheet = document.createElement("div");
     var sheetStyle = aSheet.style;
 
-    sheetStyle.padding = "14px 16px";
+    sheetStyle.width = "100%";
+    sheetStyle.height = "100%";
+    sheetStyle.boxSizing = "border-box";
+    sheetStyle.display = "flex";
+    sheetStyle.flexDirection = "column";
     sheetStyle.fontFamily = FONT_FAMILY;
     sheetStyle.fontSize = "13px";
     sheetStyle.color = TEXT_COLOR;
@@ -41,20 +45,59 @@
     return aSheet;
   }
 
-  function makeHeading(text) {
-    var aHeading = document.createElement("div");
-    var headingStyle = aHeading.style;
+  function makeStrip() {
+    var aStrip = document.createElement("div");
+    var stripStyle = aStrip.style;
 
-    aHeading.textContent = text;
+    stripStyle.display = "flex";
+    stripStyle.flexShrink = 0;
+    stripStyle.padding = "0px 10px";
+    stripStyle.backgroundColor = "var(--nw-primary)";
+    stripStyle.borderBottomStyle = "solid";
+    stripStyle.borderBottomWidth = "1px";
+    stripStyle.borderBottomColor = BORDER_COLOR;
 
-    headingStyle.marginTop = "14px";
-    headingStyle.marginBottom = "2px";
-    headingStyle.fontSize = "10px";
-    headingStyle.letterSpacing = "1px";
-    headingStyle.textTransform = "uppercase";
-    headingStyle.color = MUTED_COLOR;
+    return aStrip;
+  }
 
-    return aHeading;
+  function makeTab(label, onPick) {
+    var aTab = document.createElement("button");
+    var tabStyle = aTab.style;
+
+    aTab.textContent = label;
+    aTab.type = "button";
+
+    tabStyle.padding = "8px 11px";
+    tabStyle.backgroundColor = "transparent";
+    tabStyle.borderStyle = "none";
+    tabStyle.borderBottomStyle = "solid";
+    tabStyle.borderBottomWidth = "2px";
+    tabStyle.borderBottomColor = "transparent";
+    tabStyle.marginBottom = "-1px";
+    tabStyle.color = MUTED_COLOR;
+    tabStyle.fontFamily = FONT_FAMILY;
+    tabStyle.fontSize = "10px";
+    tabStyle.letterSpacing = "1px";
+    tabStyle.textTransform = "uppercase";
+    tabStyle.cursor = "pointer";
+    tabStyle.outlineStyle = "none";
+
+    aTab.addEventListener("click", onPick);
+
+    return aTab;
+  }
+
+  function makePanel() {
+    var aPanel = document.createElement("div");
+    var panelStyle = aPanel.style;
+
+    panelStyle.flexGrow = 1;
+    panelStyle.minHeight = 0;
+    panelStyle.overflowY = "auto";
+    panelStyle.padding = "4px 16px 14px 16px";
+    panelStyle.boxSizing = "border-box";
+
+    return aPanel;
   }
 
   function makeRow(label) {
@@ -102,9 +145,10 @@
     return aButton;
   }
 
-  function makeSelect(names, value, onChange) {
-    var aSelect = document.createElement("select");
-    var selectStyle = aSelect.style;
+  function fillOptions(aSelect, names, value) {
+    while (aSelect.firstChild) {
+      aSelect.removeChild(aSelect.firstChild);
+    }
 
     for (var i = 0; i < names.length; i++) {
       var anOption = document.createElement("option");
@@ -116,6 +160,15 @@
     }
 
     aSelect.value = value;
+
+    return aSelect;
+  }
+
+  function makeSelect(names, value, onChange) {
+    var aSelect = document.createElement("select");
+    var selectStyle = aSelect.style;
+
+    fillOptions(aSelect, names, value);
 
     selectStyle.minWidth = "140px";
     selectStyle.padding = "4px 8px";
@@ -232,7 +285,98 @@
       isCycling = !isCycling;
     }
 
-    function fill(aSheet) {
+    function readAssets() {
+      return window.assets.isEnabled();
+    }
+
+    function writeAssets() {
+      window.assets.toggle();
+    }
+
+    function readPersist() {
+      return window.storage.isEnabled();
+    }
+
+    function writePersist() {
+      window.storage.toggle();
+    }
+
+    function storageKeys() {
+      var found = [];
+
+      try {
+        for (var i = 0; i < window.localStorage.length; i++) {
+          var key = window.localStorage.key(i);
+
+          if (key.indexOf(STORAGE_PREFIX) == 0) {
+            found.push(key);
+          }
+        }
+      } catch (error) {
+        return [];
+      }
+
+      return found;
+    }
+
+    function wipeStorage() {
+      var doomed = storageKeys();
+
+      for (var i = 0; i < doomed.length; i++) {
+        window.localStorage.removeItem(doomed[i]);
+      }
+
+      window.vault.clear();
+
+      return doomed.length;
+    }
+
+    function makeDangerRow() {
+      var aRow = makeRow("reset storage");
+      var aButton = makeButton("reset", null);
+      var isArmed = false;
+      var armTimer = 0;
+
+      aButton.style.color = DANGER_COLOR;
+      aButton.style.borderColor = DANGER_COLOR;
+
+      function disarm() {
+        isArmed = false;
+
+        aButton.textContent = "reset";
+
+        if (armTimer != 0) {
+          clearTimeout(armTimer);
+
+          armTimer = 0;
+        }
+      }
+
+      function onClick() {
+        if (!isArmed) {
+          isArmed = true;
+
+          aButton.textContent = "confirm?";
+
+          armTimer = setTimeout(disarm, ARM_TIMEOUT);
+
+          return;
+        }
+
+        disarm();
+        wipeStorage();
+
+        window.location.reload();
+      }
+
+      aButton.addEventListener("click", onClick);
+
+      aRow.appendChild(aButton);
+
+      return aRow;
+    }
+
+    function fillBackground(aPage) {
       var backgroundSelect = makeSelect(
         window.backgrounds.list(),
         window.backgrounds.current(),
@@ -249,125 +393,124 @@
         backgroundSelect.value = window.backgrounds.current();
       }
 
-      aSheet.appendChild(makeHeading("background"));
-      aSheet.appendChild(backgroundRow);
-      aSheet.appendChild(makeActionRow("shuffle", "next", onNext));
-      aSheet.appendChild(makeToggleRow("auto cycle", readCycling, writeCycling));
+      aPage.appendChild(backgroundRow);
+      aPage.appendChild(makeActionRow("shuffle", "next", onNext));
+      aPage.appendChild(makeToggleRow("auto cycle", readCycling, writeCycling));
+    }
 
+    function paletteNames() {
+      var found = window.theme.list();
+      var saved = window.themes.list();
+
+      for (var i = 0; i < saved.length; i++) {
+        var isKnown = false;
+
+        for (var j = 0; j < found.length; j++) {
+          if (found[j] == saved[i]) {
+            isKnown = true;
+          }
+        }
+
+        if (!isKnown) {
+          found.push(saved[i]);
+        }
+      }
+
+      return found;
+    }
+
+    function currentPalette() {
+      var active = window.themes.current();
+
+      if (active != "") {
+        return active;
+      }
+
+      return window.theme.current();
+    }
+
+    function fillTheme(aPage) {
+      var themeRow = makeRow("palette");
+      var themeSelect = makeSelect(paletteNames(), currentPalette(), window.themes.apply);
+
+      function paint() {
+        fillOptions(themeSelect, paletteNames(), currentPalette());
+      }
+
+      painters.push(paint);
+
+      themeRow.appendChild(themeSelect);
+
+      aPage.appendChild(themeRow);
+    }
+
+    function fillShell(aPage) {
       function onReload() {
         window.location.reload();
       }
 
-      var themeRow = makeRow("palette");
+      aPage.appendChild(makeToggleRow("top bar", readTopBar, writeTopBar));
+      aPage.appendChild(makeToggleRow("fullscreen", readFullscreen, writeFullscreen));
+      aPage.appendChild(makeActionRow("session", "reload", onReload));
+    }
 
-      themeRow.appendChild(
-        makeSelect(window.theme.list(), window.theme.current(), window.theme.select)
-      );
+    function fillDanger(aPage) {
+      aPage.appendChild(makeToggleRow("asset cache", readAssets, writeAssets));
+      aPage.appendChild(makeToggleRow("save data", readPersist, writePersist));
+      aPage.appendChild(makeDangerRow());
+    }
 
-      aSheet.appendChild(makeHeading("theme"));
-      aSheet.appendChild(themeRow);
+    function fill(aSheet) {
+      var pages = [
+        { name: "background", fill: fillBackground, tone: ACCENT_COLOR },
+        { name: "theme", fill: fillTheme, tone: ACCENT_COLOR },
+        { name: "shell", fill: fillShell, tone: ACCENT_COLOR },
+        { name: "danger", fill: fillDanger, tone: DANGER_COLOR }
+      ];
 
-      var armTimer = 0;
+      var strip = makeStrip();
+      var panel = makePanel();
+      var tabs = [];
+      var sheets = [];
 
-      function storageKeys() {
-        var found = [];
+      function select(index) {
+        for (var i = 0; i < pages.length; i++) {
+          var isActive = i == index;
 
-        try {
-          for (var i = 0; i < window.localStorage.length; i++) {
-            var key = window.localStorage.key(i);
+          sheets[i].style.display = isActive ? "block" : "none";
 
-            if (key.indexOf(STORAGE_PREFIX) == 0) {
-              found.push(key);
-            }
-          }
-        } catch (error) {
-          return [];
-        }
-
-        return found;
-      }
-
-      function wipeStorage() {
-        var doomed = storageKeys();
-
-        for (var i = 0; i < doomed.length; i++) {
-          window.localStorage.removeItem(doomed[i]);
-        }
-
-        window.vault.clear();
-
-        return doomed.length;
-      }
-
-      function makeDangerRow() {
-        var aRow = makeRow("reset storage");
-        var aButton = makeButton("reset", null);
-        var isArmed = false;
-
-        aButton.style.color = DANGER_COLOR;
-        aButton.style.borderColor = DANGER_COLOR;
-
-        function disarm() {
-          isArmed = false;
-
-          aButton.textContent = "reset";
-
-          if (armTimer != 0) {
-            clearTimeout(armTimer);
-
-            armTimer = 0;
+          if (isActive) {
+            tabs[i].style.color = pages[i].tone;
+            tabs[i].style.borderBottomColor = pages[i].tone;
+          } else {
+            tabs[i].style.color = MUTED_COLOR;
+            tabs[i].style.borderBottomColor = "transparent";
           }
         }
-
-        function onClick() {
-          if (!isArmed) {
-            isArmed = true;
-
-            aButton.textContent = "confirm?";
-
-            armTimer = setTimeout(disarm, ARM_TIMEOUT);
-
-            return;
-          }
-
-          disarm();
-          wipeStorage();
-
-          window.location.reload();
-        }
-
-        aButton.addEventListener("click", onClick);
-
-        aRow.appendChild(aButton);
-
-        return aRow;
       }
 
-      aSheet.appendChild(makeHeading("shell"));
-      aSheet.appendChild(makeToggleRow("top bar", readTopBar, writeTopBar));
-      aSheet.appendChild(makeToggleRow("fullscreen", readFullscreen, writeFullscreen));
-      aSheet.appendChild(makeActionRow("session", "reload", onReload));
+      for (var i = 0; i < pages.length; i++) {
+        var aPage = document.createElement("div");
 
-      function readAssets() {
-        return window.assets.isEnabled();
+        pages[i].fill(aPage);
+
+        panel.appendChild(aPage);
+        sheets.push(aPage);
+
+        var aTab = makeTab(pages[i].name, (function (index) {
+          return function () {
+            select(index);
+          };
+        })(i));
+
+        strip.appendChild(aTab);
+        tabs.push(aTab);
       }
 
-      function writeAssets() {
-        window.assets.toggle();
-      }
+      select(0);
 
-      function readPersist() {
-        return window.storage.isEnabled();
-      }
-
-      function writePersist() {
-        window.storage.toggle();
-      }
-
-      aSheet.appendChild(makeHeading("danger"));
-      aSheet.appendChild(makeToggleRow("asset cache", readAssets, writeAssets));
-      aSheet.appendChild(makeToggleRow("save data", readPersist, writePersist));
-      aSheet.appendChild(makeDangerRow());
+      aSheet.appendChild(strip);
+      aSheet.appendChild(panel);
     }
 
     function open() {
@@ -419,7 +562,15 @@
       }
     }
 
+    function onThemesChange() {
+      if (isOpen()) {
+        refresh();
+      }
+    }
+
     document.addEventListener("fullscreenchange", onFullscreenChange);
+
+    window.themes.watch(onThemesChange);
 
     return {
       open: open,
