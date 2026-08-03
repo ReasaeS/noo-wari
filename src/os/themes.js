@@ -9,6 +9,51 @@
   var DEFAULT_ANGLE = 180;
   var DEFAULT_FIT = "cover";
 
+  var PRESET_APPS = {
+    "noo-wari": "terminal",
+    nord: "files",
+    ember: "shadertoy",
+    orchid: "paint",
+    mono: "notes",
+    abyss: "player"
+  };
+
+  var PRESET_DESKS = {
+    "noo-wari": [
+      { kind: "featured", anchor: "bottomRight", x: 0, y: 0 },
+      { kind: "snap", anchor: "bottomRight", x: 176, y: 0 }
+    ],
+    nord: [
+      { kind: "featured", anchor: "bottomRight", x: 0, y: 0 },
+      { kind: "snap", anchor: "bottomRight", x: 176, y: 0 }
+    ],
+    ember: [
+      { kind: "featured", anchor: "topRight", x: 0, y: 0 },
+      { kind: "snap", anchor: "topRight", x: 176, y: 0 }
+    ],
+    orchid: [
+      { kind: "featured", anchor: "bottomLeft", x: 0, y: 0 },
+      { kind: "snap", anchor: "bottomLeft", x: 176, y: 0 }
+    ],
+    mono: [
+      { kind: "featured", anchor: "bottomRight", x: 0, y: 0 },
+      { kind: "snap", anchor: "bottomRight", x: 176, y: 0 }
+    ],
+    abyss: [
+      { kind: "featured", anchor: "topRight", x: 0, y: 0 },
+      { kind: "snap", anchor: "topRight", x: 176, y: 0 }
+    ]
+  };
+
+  var PRESET_LAYOUTS = {
+    "noo-wari": { bar: "top", corner: "topLeft", flow: "down" },
+    nord: { bar: "top", corner: "topLeft", flow: "across" },
+    ember: { bar: "bottom", corner: "bottomLeft", flow: "down" },
+    orchid: { bar: "top", corner: "topRight", flow: "down" },
+    mono: { bar: "bottom", corner: "topLeft", flow: "across" },
+    abyss: { bar: "top", corner: "bottomLeft", flow: "across" }
+  };
+
   var PRESET_PAPERS = {
     "noo-wari": "floral",
     nord: "aurora",
@@ -54,12 +99,62 @@
     return out;
   }
 
+  function copyLayout(input) {
+    return window.layout.clean(input);
+  }
+
+  function copyDesk(input) {
+    var out = new Object();
+
+    out.icons = [];
+    out.widgets = [];
+
+    if (input == null) {
+      return out;
+    }
+
+    if (input.icons instanceof Array) {
+      for (var i = 0; i < input.icons.length; i++) {
+        var spot = input.icons[i];
+
+        if (spot != null && typeof spot.name == "string") {
+          out.icons.push({
+            name: spot.name,
+            x: typeof spot.x == "number" ? spot.x : 0,
+            y: typeof spot.y == "number" ? spot.y : 0
+          });
+        }
+      }
+    }
+
+    if (input.widgets instanceof Array) {
+      for (var j = 0; j < input.widgets.length; j++) {
+        var held = input.widgets[j];
+
+        if (held != null && typeof held.kind == "string") {
+          out.widgets.push({
+            id: typeof held.id == "string" ? held.id : "",
+            kind: held.kind,
+            anchor: typeof held.anchor == "string" ? held.anchor : "topRight",
+            x: typeof held.x == "number" ? held.x : 0,
+            y: typeof held.y == "number" ? held.y : 0
+          });
+        }
+      }
+    }
+
+    return out;
+  }
+
   function copyTheme(aTheme) {
     var out = new Object();
 
     out.name = typeof aTheme.name == "string" ? aTheme.name : "untitled";
     out.palette = copyPalette(aTheme.palette);
     out.wallpaper = copyPaper(aTheme.wallpaper);
+    out.layout = copyLayout(aTheme.layout);
+    out.app = typeof aTheme.app == "string" ? aTheme.app : "";
+    out.desk = copyDesk(aTheme.desk);
 
     return out;
   }
@@ -180,6 +275,120 @@
       return copyPaper({ kind: "named", name: window.backgrounds.current() });
     }
 
+    function settle(shape) {
+      window.layout.set(shape);
+
+      return true;
+    }
+
+    function snapshot() {
+      var out = new Object();
+
+      out.icons = [];
+      out.widgets = [];
+
+      if (typeof window.filesystem != "undefined") {
+        var host = window.filesystem.desktop();
+
+        for (var i = 0; i < host.children.length; i++) {
+          out.icons.push({
+            name: host.children[i].name,
+            x: host.children[i].x,
+            y: host.children[i].y
+          });
+        }
+      }
+
+      if (typeof window.widgets != "undefined") {
+        var held = window.widgets.list();
+
+        for (var j = 0; j < held.length; j++) {
+          out.widgets.push({
+            id: held[j].id,
+            kind: held[j].kind,
+            anchor: held[j].anchor,
+            x: held[j].x,
+            y: held[j].y
+          });
+        }
+      }
+
+      return out;
+    }
+
+    function dressDesk(desk) {
+      if (desk == null) {
+        return false;
+      }
+
+      if (desk.icons.length > 0 && typeof window.filesystem != "undefined") {
+        var host = window.filesystem.desktop();
+        var moved = false;
+
+        for (var i = 0; i < desk.icons.length; i++) {
+          for (var j = 0; j < host.children.length; j++) {
+            if (host.children[j].name == desk.icons[i].name) {
+              host.children[j].x = desk.icons[i].x;
+              host.children[j].y = desk.icons[i].y;
+
+              moved = true;
+            }
+          }
+        }
+
+        if (moved) {
+          window.filesystem.save();
+        }
+      }
+
+      if (desk.widgets.length > 0 && typeof window.widgets != "undefined") {
+        window.widgets.arrange(desk.widgets);
+      }
+
+      return true;
+    }
+
+    function feature(name) {
+      if (typeof name != "string" || name == "") {
+        return false;
+      }
+
+      if (typeof window.launcher == "undefined" || typeof window.desktops == "undefined") {
+        return false;
+      }
+
+      var apps = window.launcher.list();
+      var found = null;
+
+      for (var i = 0; i < apps.length; i++) {
+        if (apps[i].name == name) {
+          found = apps[i];
+        }
+      }
+
+      if (found == null) {
+        return false;
+      }
+
+      found.run();
+
+      var active = window.desktops.focused();
+
+      if (active != null && typeof active.restore == "function") {
+        active.restore();
+      }
+
+      var open = window.desktops.windows(window.desktops.current());
+
+      for (var j = 0; j < open.length; j++) {
+        if (open[j] != active && typeof open[j].tuck == "function") {
+          open[j].tuck();
+        }
+      }
+
+      return true;
+    }
+
     function paint(aTheme) {
       if (aTheme == null) {
         return false;
@@ -188,6 +397,7 @@
       window.theme.set(aTheme.palette);
 
       dress(aTheme.wallpaper);
+      settle(copyLayout(aTheme.layout));
 
       return true;
     }
@@ -198,6 +408,9 @@
       out.name = name;
       out.palette = copyPalette(window.theme.get());
       out.wallpaper = paper();
+      out.layout = copyLayout(window.layout.get());
+      out.app = "";
+      out.desk = copyDesk(null);
 
       return out;
     }
@@ -296,11 +509,16 @@
       return true;
     }
 
-    function apply(name) {
+    function land(name, isSwitch) {
       var found = get(name);
 
       if (found != null) {
         paint(found);
+
+        if (isSwitch) {
+          dressDesk(found.desk);
+          feature(found.app);
+        }
 
         activeName = name;
 
@@ -320,12 +538,23 @@
         dress({ kind: "named", name: skin });
       }
 
+      settle(copyLayout(PRESET_LAYOUTS[name]));
+
+      if (isSwitch) {
+        dressDesk(copyDesk({ icons: [], widgets: PRESET_DESKS[name] }));
+        feature(PRESET_APPS[name]);
+      }
+
       activeName = name;
 
       store();
       notify();
 
       return true;
+    }
+
+    function apply(name) {
+      return land(name, true);
     }
 
     function current() {
@@ -337,11 +566,23 @@
         return false;
       }
 
-      return apply(activeName);
+      return land(activeName, false);
     }
 
     function kinds() {
       return KINDS.slice(0);
+    }
+
+    function appFor(name) {
+      if (typeof PRESET_APPS[name] != "string") {
+        return "";
+      }
+
+      return PRESET_APPS[name];
+    }
+
+    function layoutFor(name) {
+      return copyLayout(PRESET_LAYOUTS[name]);
     }
 
     function paperFor(name) {
@@ -398,6 +639,9 @@
       blank: copyPaper,
       kinds: kinds,
       paperFor: paperFor,
+      snapshot: snapshot,
+      layoutFor: layoutFor,
+      appFor: appFor,
       wallpapers: wallpapers,
       fits: fits,
       watch: watch,

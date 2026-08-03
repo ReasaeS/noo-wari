@@ -321,6 +321,111 @@
       report("derived");
     }
 
+    function paintLayout() {
+      var shape = draft.layout;
+
+      stage.appendChild(makeHeading("layout"));
+
+      var barRow = makeRow("top bar");
+
+      barRow.appendChild(
+        ui.select(window.layout.bars(), shape.bar, function (picked) {
+          shape.bar = picked;
+
+          preview();
+        })
+      );
+
+      var cornerRow = makeRow("icons start");
+
+      cornerRow.appendChild(
+        ui.select(window.layout.corners(), shape.corner, function (picked) {
+          shape.corner = picked;
+
+          preview();
+        })
+      );
+
+      var flowRow = makeRow("icons flow");
+
+      flowRow.appendChild(
+        ui.select(window.layout.flows(), shape.flow, function (picked) {
+          shape.flow = picked;
+
+          preview();
+        })
+      );
+
+      stage.appendChild(barRow);
+      stage.appendChild(cornerRow);
+      stage.appendChild(flowRow);
+
+      var appRow = makeRow("opens");
+      var names = ["none"];
+      var apps = window.launcher.list();
+
+      for (var i = 0; i < apps.length; i++) {
+        names.push(apps[i].name);
+      }
+
+      appRow.appendChild(
+        ui.select(names, draft.app == "" ? "none" : draft.app, function (picked) {
+          draft.app = picked == "none" ? "" : picked;
+        })
+      );
+
+      stage.appendChild(appRow);
+
+      var note = ui.label("brought forward when this theme is chosen, others minimise");
+
+      note.style.display = "block";
+      note.style.fontSize = "10px";
+      note.style.paddingLeft = "94px";
+
+      stage.appendChild(note);
+
+      paintDesk();
+    }
+
+    function paintDesk() {
+      stage.appendChild(makeHeading("desktop"));
+
+      var count = draft.desk.icons.length + draft.desk.widgets.length;
+      var shotRow = makeRow("snapshot");
+
+      shotRow.appendChild(ui.button("snapshot desktop", function () {
+        draft.desk = window.themes.snapshot();
+
+        paint();
+        report("saved " + draft.desk.icons.length + " icons and " +
+          draft.desk.widgets.length + " widgets");
+      }));
+
+      if (count > 0) {
+        shotRow.appendChild(ui.button("forget", function () {
+          draft.desk = { icons: [], widgets: [] };
+
+          paint();
+          report("snapshot cleared");
+        }));
+      }
+
+      stage.appendChild(shotRow);
+
+      var state = ui.label(
+        count == 0
+          ? "no snapshot, icons and widgets stay where they are"
+          : draft.desk.icons.length + " icons and " + draft.desk.widgets.length +
+            " widgets restored on switch"
+      );
+
+      state.style.display = "block";
+      state.style.fontSize = "10px";
+      state.style.paddingLeft = "94px";
+
+      stage.appendChild(state);
+    }
+
     function paintWallpaper() {
       var paper = draft.wallpaper;
 
@@ -491,6 +596,7 @@
       stage.appendChild(deriveRow);
 
       paintWallpaper();
+      paintLayout();
     }
 
     function paint() {

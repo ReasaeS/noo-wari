@@ -154,7 +154,7 @@
 
   window.widgets.define("featured", {
     title: "featured",
-    width: 178,
+    columns: 2,
     anchor: "topRight",
     x: 0,
     y: 0,

@@ -297,14 +297,23 @@
     return window.topbar.height();
   }
 
+  function barSide() {
+    if (typeof window.layout == "undefined") {
+      return "top";
+    }
+
+    return window.layout.bar();
+  }
+
   function workArea() {
-    var top = barHeight();
+    var edge = barHeight();
+    var top = barSide() == "bottom" ? 0 : edge;
 
     return {
       left: 0,
       top: top,
       width: window.innerWidth,
-      height: window.innerHeight - top
+      height: window.innerHeight - edge
     };
   }
 
@@ -754,6 +763,16 @@
       return true;
     }
 
+    function tuck() {
+      if (isClosed || isMinimized) {
+        return false;
+      }
+
+      minimize();
+
+      return true;
+    }
+
     function refit() {
       if (isClosed || snapSide == "") {
         return false;
@@ -829,6 +848,7 @@
     aWindow.setStack = setStack;
     aWindow.paintFocus = paintFocus;
     aWindow.restore = restore;
+    aWindow.tuck = tuck;
     aWindow.desktop = activeDesktop;
     aWindow.color = makeWindowColor();
 

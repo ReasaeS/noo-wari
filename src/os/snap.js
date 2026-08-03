@@ -57,8 +57,67 @@
     return found;
   }
 
-  function nextTheme() {
+  function holds(list, name) {
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] == name) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function chosen(anItem) {
     var names = themeNames();
+    var picked = anItem.settings.themes;
+
+    if (!(picked instanceof Array) || picked.length == 0) {
+      return names;
+    }
+
+    var found = [];
+
+    for (var i = 0; i < names.length; i++) {
+      if (holds(picked, names[i])) {
+        found.push(names[i]);
+      }
+    }
+
+    if (found.length == 0) {
+      return names;
+    }
+
+    return found;
+  }
+
+  function toggle(anItem, name) {
+    var picked = anItem.settings.themes;
+
+    if (!(picked instanceof Array) || picked.length == 0) {
+      picked = themeNames();
+    }
+
+    var out = [];
+
+    for (var i = 0; i < picked.length; i++) {
+      if (picked[i] != name) {
+        out.push(picked[i]);
+      }
+    }
+
+    if (out.length == picked.length) {
+      out.push(name);
+    } else if (out.length == 0) {
+      return false;
+    }
+
+    anItem.settings.themes = out;
+
+    return true;
+  }
+
+  function nextTheme(anItem) {
+    var names = chosen(anItem);
 
     if (names.length == 0) {
       return "";
@@ -123,6 +182,9 @@
     var level = document.createElement("div");
     var mark = document.createElement("div");
     var action = ui.button("listen", null);
+    var cycle = document.createElement("div");
+    var sheet = document.createElement("div");
+    var isOpen = false;
 
     function say(text, color) {
       status.textContent = text;
@@ -135,12 +197,146 @@
 
     function paintReading() {
       if (phase == "ready") {
-        reading.textContent = count + " snaps  ·  " + window.themes.current();
+        reading.textContent = count + " snaps  ·  " + chosen(anItem).length + " themes";
       } else if (phase == "teaching") {
         reading.textContent = risings.length + " heard";
       } else {
         reading.textContent = "";
       }
+    }
+
+    function makeSheetRow(label, isOn, onPick) {
+      var aRow = document.createElement("div");
+
+      aRow.textContent = (isOn ? "✓  " : "     ") + label;
+
+      aRow.style.padding = "5px 10px";
+      aRow.style.fontSize = "11px";
+      aRow.style.cursor = "pointer";
+      aRow.style.whiteSpace = "nowrap";
+      aRow.style.color = isOn ? ui.ACCENT_COLOR : ui.MUTED_COLOR;
+
+      function onEnter() {
+        aRow.style.backgroundColor = "var(--nw-hover)";
+      }
+
+      function onLeave() {
+        aRow.style.backgroundColor = "";
+      }
+
+      function onDown(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        onPick();
+      }
+
+      aRow.addEventListener("mouseenter", onEnter);
+      aRow.addEventListener("mouseleave", onLeave);
+      aRow.addEventListener("mousedown", onDown);
+
+      return aRow;
+    }
+
+    function paintSheet() {
+      var names = themeNames();
+      var picked = chosen(anItem);
+
+      while (sheet.firstChild) {
+        sheet.removeChild(sheet.firstChild);
+      }
+
+      for (var i = 0; i < names.length; i++) {
+        sheet.appendChild(makeSheetRow(names[i], holds(picked, names[i]), (function (name) {
+          return function () {
+            toggle(anItem, name);
+
+            window.widgets.store();
+
+            paintCycle();
+            paintSheet();
+            paintReading();
+          };
+        })(names[i])));
+      }
+
+      var every = makeSheetRow("all themes", picked.length == names.length, function () {
+        anItem.settings.themes = [];
+
+        window.widgets.store();
+
+        paintCycle();
+        paintSheet();
+        paintReading();
+      });
+
+      every.style.borderTopStyle = "solid";
+      every.style.borderTopWidth = "1px";
+      every.style.borderTopColor = ui.BORDER_COLOR;
+      every.style.marginTop = "4px";
+      every.style.paddingTop = "7px";
+
+      sheet.appendChild(every);
+    }
+
+    function paintCycle() {
+      var names = themeNames();
+      var picked = chosen(anItem);
+
+      cycle.textContent = picked.length + " of " + names.length + " themes";
+    }
+
+    function placeSheet() {
+      var box = cycle.getBoundingClientRect();
+
+      sheet.style.left = box.left + "px";
+      sheet.style.width = box.width + "px";
+
+      var room = window.innerHeight - box.bottom;
+      var tall = sheet.getBoundingClientRect().height;
+
+      if (room < tall + 8) {
+        sheet.style.top = Math.max(4, box.top - tall - 4) + "px";
+      } else {
+        sheet.style.top = box.bottom + 4 + "px";
+      }
+    }
+
+    function openSheet() {
+      paintSheet();
+
+      sheet.style.display = "block";
+      isOpen = true;
+
+      placeSheet();
+    }
+
+    function closeSheet() {
+      sheet.style.display = "none";
+      isOpen = false;
+    }
+
+    function onCycle(event) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (isOpen) {
+        closeSheet();
+      } else {
+        openSheet();
+      }
+    }
+
+    function onAway(event) {
+      if (!isOpen) {
+        return;
+      }
+
+      if (sheet.contains(event.target) || cycle.contains(event.target)) {
+        return;
+      }
+
+      closeSheet();
     }
 
     function paintMeter(amount) {
@@ -290,7 +486,7 @@
       lastSnap = now;
       count = count + 1;
 
-      nextTheme();
+      nextTheme(anItem);
       paintReading();
     }
 
@@ -527,7 +723,42 @@
 
     action.style.width = "100%";
 
+    cycle.style.width = "100%";
+    cycle.style.marginTop = "6px";
+    cycle.style.padding = "4px 6px";
+    cycle.style.boxSizing = "border-box";
+    cycle.style.backgroundColor = ui.SELECT_COLOR;
+    cycle.style.borderStyle = "solid";
+    cycle.style.borderWidth = "1px";
+    cycle.style.borderColor = ui.BORDER_COLOR;
+    cycle.style.borderRadius = "4px";
+    cycle.style.color = ui.TEXT_COLOR;
+    cycle.style.fontFamily = ui.FONT_FAMILY;
+    cycle.style.fontSize = "11px";
+    cycle.style.textAlign = "center";
+    cycle.style.cursor = "pointer";
+
+    sheet.style.position = "fixed";
+    sheet.style.display = "none";
+    sheet.style.padding = "4px 0px";
+    sheet.style.boxSizing = "border-box";
+    sheet.style.backgroundColor = "var(--nw-panel)";
+    sheet.style.borderStyle = "solid";
+    sheet.style.borderWidth = "1px";
+    sheet.style.borderColor = ui.BORDER_COLOR;
+    sheet.style.borderRadius = "5px";
+    sheet.style.backdropFilter = "blur(6px)";
+    sheet.style.webkitBackdropFilter = "blur(6px)";
+    sheet.style.fontFamily = ui.FONT_FAMILY;
+    sheet.style.maxHeight = "240px";
+    sheet.style.overflowY = "auto";
+    sheet.style.zIndex = 1300;
+
+    document.body.appendChild(sheet);
+
     action.addEventListener("click", onAction);
+    cycle.addEventListener("mousedown", onCycle);
+    document.addEventListener("mousedown", onAway, true);
 
     track.appendChild(level);
     track.appendChild(mark);
@@ -536,6 +767,16 @@
     aBody.appendChild(reading);
     aBody.appendChild(track);
     aBody.appendChild(action);
+    aBody.appendChild(cycle);
+
+    paintCycle();
+
+    function onThemes() {
+      paintCycle();
+      paintReading();
+    }
+
+    window.themes.watch(onThemes);
 
     for (var i = 0; i < INPUT_EVENTS.length; i++) {
       document.addEventListener(INPUT_EVENTS[i], onInput, true);
@@ -545,6 +786,12 @@
 
     function teardown() {
       phase = "off";
+
+      window.themes.unwatch(onThemes);
+
+      document.removeEventListener("mousedown", onAway, true);
+
+      sheet.remove();
 
       for (var i = 0; i < INPUT_EVENTS.length; i++) {
         document.removeEventListener(INPUT_EVENTS[i], onInput, true);
@@ -571,7 +818,7 @@
 
   window.widgets.define("snap", {
     title: "the snap",
-    width: 190,
+    columns: 2,
     anchor: "bottomRight",
     x: 0,
     y: 0,

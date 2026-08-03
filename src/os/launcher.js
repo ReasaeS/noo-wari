@@ -678,32 +678,9 @@
     };
   }
 
-  function openWindow(title) {
-    var aWindow = window.makeWindow();
-
-    var labelElement = document.createElement("span");
-    var labelStyle = labelElement.style;
-
-    labelElement.textContent = title;
-
-    labelStyle.marginLeft = "4px";
-    labelStyle.color = TEXT_COLOR;
-    labelStyle.fontFamily = FONT_FAMILY;
-    labelStyle.fontSize = "12px";
-    labelStyle.pointerEvents = "none";
-
-    aWindow.titleBar.appendChild(labelElement);
-
-    return aWindow;
-  }
-
   makeOrbStyle();
 
   var launcher = makeLauncher();
-
-  launcher.register("window", "open an empty window", function () {
-    openWindow("window");
-  }, "system");
 
   launcher.register("config", "wallpaper, top bar and session settings", function () {
     window.config.open();

@@ -51,9 +51,10 @@
     barStyle.alignItems = "center";
     barStyle.padding = "0px " + PADDING + "px";
     barStyle.backgroundColor = BAR_COLOR;
-    barStyle.borderBottomStyle = "solid";
+    barStyle.borderStyle = "solid";
+    barStyle.borderWidth = "0px";
     barStyle.borderBottomWidth = "1px";
-    barStyle.borderBottomColor = BORDER_COLOR;
+    barStyle.borderColor = BORDER_COLOR;
     barStyle.backdropFilter = "blur(8px)";
     barStyle.webkitBackdropFilter = "blur(8px)";
     barStyle.fontFamily = FONT_FAMILY;
@@ -146,6 +147,7 @@
 
   function makeTopBar() {
     var aBar = makeBar();
+    var placed = "top";
 
     var leftSection = makeSection("flex-start", 0);
     var centerSection = makeSection("center", 1);
@@ -283,6 +285,32 @@
       return BAR_HEIGHT;
     }
 
+    function side(name) {
+      if (typeof name != "string") {
+        return placed;
+      }
+
+      if (name != "bottom") {
+        name = "top";
+      }
+
+      placed = name;
+
+      if (name == "bottom") {
+        aBar.style.top = "";
+        aBar.style.bottom = "0px";
+        aBar.style.borderBottomWidth = "0px";
+        aBar.style.borderTopWidth = "1px";
+      } else {
+        aBar.style.bottom = "";
+        aBar.style.top = "0px";
+        aBar.style.borderTopWidth = "0px";
+        aBar.style.borderBottomWidth = "1px";
+      }
+
+      return placed;
+    }
+
     for (var i = 0; i < WORKSPACES.length; i++) {
       var aWorkspace = makeWorkspace(WORKSPACES[i], makeWorkspaceHandler(i));
 
@@ -311,7 +339,8 @@
       stop: stop,
       show: show,
       hide: hide,
-      height: height
+      height: height,
+      side: side
     };
   }
 

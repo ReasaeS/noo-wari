@@ -8,6 +8,7 @@
   var CELL_WIDTH = 88;
   var CELL_HEIGHT = 94;
   var DRAG_THRESHOLD = 5;
+  var GAP = 6;
 
   var ANCHORS = ["topLeft", "topRight", "bottomLeft", "bottomRight"];
 
@@ -32,6 +33,41 @@
     }
 
     return cells * step;
+  }
+
+  function overlaps(a, b) {
+    return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  }
+
+  function iconBoxes() {
+    if (typeof window.desktop == "undefined" || typeof window.desktop.boxes != "function") {
+      return [];
+    }
+
+    return window.desktop.boxes();
+  }
+
+  var FACING = {
+    topLeft: "bottomRight",
+    topRight: "bottomLeft",
+    bottomLeft: "topRight",
+    bottomRight: "topLeft"
+  };
+
+  function facingCorner() {
+    if (typeof window.layout == "undefined") {
+      return FACING.topLeft;
+    }
+
+    return FACING[window.layout.corner()];
+  }
+
+  function facingFlow() {
+    if (typeof window.layout == "undefined") {
+      return "down";
+    }
+
+    return window.layout.flow();
   }
 
   function isAnchor(name) {
@@ -107,12 +143,11 @@
     return anEntry;
   }
 
-  function makeFrame(spec) {
+  function makeFrame() {
     var aFrame = document.createElement("div");
     var frameStyle = aFrame.style;
 
     frameStyle.position = "absolute";
-    frameStyle.width = spec.width + "px";
     frameStyle.boxSizing = "border-box";
     frameStyle.pointerEvents = "auto";
     frameStyle.backgroundColor = "var(--nw-bar)";
@@ -202,7 +237,7 @@
 
       aKind.name = name;
       aKind.title = typeof spec.title == "string" ? spec.title : name;
-      aKind.width = typeof spec.width == "number" ? spec.width : 200;
+      aKind.columns = typeof spec.columns == "number" ? Math.max(1, spec.columns) : 2;
       aKind.anchor = isAnchor(spec.anchor) ? spec.anchor : "topRight";
       aKind.x = typeof spec.x == "number" ? spec.x : 0;
       aKind.y = typeof spec.y == "number" ? spec.y : 0;
@@ -237,16 +272,19 @@
       frameStyle.top = "";
       frameStyle.bottom = "";
 
+      var side = typeof cells.right == "number" ? cells.right : cells.left;
+      var foot = typeof cells.bottom == "number" ? cells.bottom : cells.left;
+
       if (anItem.anchor == "topLeft" || anItem.anchor == "bottomLeft") {
-        frameStyle.left = cells.left + anItem.x + "px";
+        frameStyle.left = cells.left + anItem.x + GAP + "px";
       } else {
-        frameStyle.right = cells.left + anItem.x + "px";
+        frameStyle.right = side + anItem.x + GAP + "px";
       }
 
       if (anItem.anchor == "topLeft" || anItem.anchor == "topRight") {
-        frameStyle.top = cells.top + anItem.y + "px";
+        frameStyle.top = cells.top + anItem.y + GAP + "px";
       } else {
-        frameStyle.bottom = cells.left + anItem.y + "px";
+        frameStyle.bottom = foot + anItem.y + GAP + "px";
       }
     }
 
@@ -302,6 +340,23 @@
       return true;
     }
 
+    function measure(anItem) {
+      var cells = grid();
+      var frameStyle = anItem.frame.style;
+
+      frameStyle.width = anItem.spec.columns * cells.cellWidth - GAP * 2 + "px";
+      frameStyle.height = "";
+
+      var natural = anItem.frame.getBoundingClientRect().height + GAP * 2;
+      var rows = Math.max(1, Math.ceil(natural / cells.cellHeight));
+
+      frameStyle.height = rows * cells.cellHeight - GAP * 2 + "px";
+
+      anItem.rows = rows;
+
+      return rows;
+    }
+
     function refresh(anItem) {
       if (typeof anItem.teardown == "function") {
         anItem.teardown();
@@ -310,6 +365,8 @@
       window.ui.clear(anItem.body);
 
       anItem.teardown = anItem.spec.build(anItem.body, anItem);
+
+      measure(anItem);
     }
 
     function menuFor(anItem, x, y) {
@@ -353,6 +410,119 @@
       showMenu(entries, x, y);
     }
 
+    function arrange(list) {
+      if (!(list instanceof Array)) {
+        return false;
+      }
+
+      var used = [];
+
+      for (var i = 0; i < list.length; i++) {
+        var spot = list[i];
+        var anItem = null;
+        var index = indexOfId(spot.id);
+
+        if (index != -1) {
+          anItem = items[index];
+        } else {
+          for (var j = 0; j < items.length; j++) {
+            if (items[j].kind == spot.kind && used.indexOf(items[j].id) == -1) {
+              anItem = items[j];
+
+              break;
+            }
+          }
+        }
+
+        if (anItem == null || anItem.frame == null) {
+          continue;
+        }
+
+        used.push(anItem.id);
+
+        if (isAnchor(spot.anchor)) {
+          anItem.anchor = spot.anchor;
+        }
+
+        if (typeof spot.x == "number") {
+          anItem.x = spot.x;
+        }
+
+        if (typeof spot.y == "number") {
+          anItem.y = spot.y;
+        }
+
+        place(anItem);
+      }
+
+      store();
+
+      return true;
+    }
+
+    function tidy() {
+      var cells = grid();
+      var wall = facingCorner();
+      var flow = facingFlow();
+      var room = {
+        width: (typeof cells.width == "number" ? cells.width : window.innerWidth - cells.left * 2) / 2,
+        height: (typeof cells.height == "number" ? cells.height : window.innerHeight - cells.top) / 2
+      };
+
+      var x = 0;
+      var y = 0;
+      var lane = 0;
+
+      for (var i = 0; i < items.length; i++) {
+        var anItem = items[i];
+
+        if (anItem.frame == null) {
+          continue;
+        }
+
+        var wide = anItem.spec.columns * cells.cellWidth;
+        var tall = (typeof anItem.rows == "number" ? anItem.rows : 1) * cells.cellHeight;
+
+        if (flow == "down") {
+          if (y > 0 && y + tall > room.height) {
+            y = 0;
+            x = x + lane;
+            lane = 0;
+          }
+        } else {
+          if (x > 0 && x + wide > room.width) {
+            x = 0;
+            y = y + lane;
+            lane = 0;
+          }
+        }
+
+        anItem.anchor = wall;
+        anItem.x = x;
+        anItem.y = y;
+
+        if (flow == "down") {
+          y = y + tall;
+
+          if (wide > lane) {
+            lane = wide;
+          }
+        } else {
+          x = x + wide;
+
+          if (tall > lane) {
+            lane = tall;
+          }
+        }
+
+        place(anItem);
+      }
+
+      store();
+
+      return true;
+    }
+
     function nearestAnchor(x, y) {
       var toLeft = x < window.innerWidth / 2;
       var toTop = y < window.innerHeight / 2;
@@ -362,6 +532,82 @@
       }
 
       return toLeft ? "bottomLeft" : "bottomRight";
+    }
+
+    function boxes(except) {
+      var found = [];
+
+      for (var i = 0; i < items.length; i++) {
+        if (items[i] == except || items[i].frame == null) {
+          continue;
+        }
+
+        var rect = items[i].frame.getBoundingClientRect();
+
+        if (rect.width == 0 && rect.height == 0) {
+          continue;
+        }
+
+        found.push({
+          left: rect.left,
+          top: rect.top,
+          right: rect.right,
+          bottom: rect.bottom
+        });
+      }
+
+      return found;
+    }
+
+    function boxFor(anItem, anchor, x, y) {
+      var cells = grid();
+      var size = anItem.frame.getBoundingClientRect();
+      var wide = size.width;
+      var tall = size.height;
+
+      var side = typeof cells.right == "number" ? cells.right : cells.left;
+      var foot = typeof cells.bottom == "number" ? cells.bottom : cells.left;
+
+      var left = anchor == "topLeft" || anchor == "bottomLeft"
+        ? cells.left + x + GAP
+        : window.innerWidth - side - x - GAP - wide;
+
+      var top = anchor == "topLeft" || anchor == "topRight"
+        ? cells.top + y + GAP
+        : window.innerHeight - foot - y - GAP - tall;
+
+      return { left: left, top: top, right: left + wide, bottom: top + tall };
+    }
+
+    function fits(anItem, anchor, x, y) {
+      var rect = boxFor(anItem, anchor, x, y);
+      var taken = boxes(anItem).concat(iconBoxes());
+
+      for (var i = 0; i < taken.length; i++) {
+        if (overlaps(rect, taken[i])) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    function clearOf(anItem, anchor, x, y) {
+      var cells = grid();
+      var tries = 0;
+
+      while (!fits(anItem, anchor, x, y) && tries < 60) {
+        y = y + cells.cellHeight;
+
+        if (y + cells.cellHeight > window.innerHeight) {
+          y = 0;
+          x = x + cells.cellWidth;
+        }
+
+        tries = tries + 1;
+      }
+
+      return { x: x, y: y };
     }
 
     function settle(anItem, event) {
@@ -382,6 +628,11 @@
       } else {
         anItem.y = snap(window.innerHeight - box.bottom - cells.left, cells.cellHeight);
       }
+
+      var free = clearOf(anItem, anchor, anItem.x, anItem.y);
+
+      anItem.x = free.x;
+      anItem.y = free.y;
 
       place(anItem);
       store();
@@ -456,7 +707,7 @@
     }
 
     function dress(anItem) {
-      var aFrame = makeFrame(anItem.spec);
+      var aFrame = makeFrame();
       var aHeader = makeHeader(anItem.spec.title);
       var aBody = makeBody();
 
@@ -505,6 +756,8 @@
       layer.appendChild(aFrame);
 
       anItem.teardown = anItem.spec.build(aBody, anItem);
+
+      measure(anItem);
     }
 
     function add(kind, options) {
@@ -542,6 +795,51 @@
       dress(anItem);
 
       return anItem;
+    }
+
+    function addAt(kind, x, y) {
+      var cells = grid();
+      var anchor = nearestAnchor(x, y);
+      var offsetX = 0;
+      var offsetY = 0;
+
+      if (anchor == "topLeft" || anchor == "bottomLeft") {
+        offsetX = snap(x - cells.left, cells.cellWidth);
+      } else {
+        offsetX = snap(window.innerWidth - x - cells.left, cells.cellWidth);
+      }
+
+      if (anchor == "topLeft" || anchor == "topRight") {
+        offsetY = snap(y - cells.top, cells.cellHeight);
+      } else {
+        offsetY = snap(window.innerHeight - y - cells.left, cells.cellHeight);
+      }
+
+      var made = add(kind, { anchor: anchor, x: offsetX, y: offsetY });
+
+      if (made == null) {
+        return null;
+      }
+
+      var free = clearOf(made, anchor, offsetX, offsetY);
+
+      made.x = free.x;
+      made.y = free.y;
+
+      place(made);
+      store();
+
+      return made;
+    }
+
+    function titleOf(kind) {
+      var spec = kindNamed(kind);
+
+      if (spec == null) {
+        return kind;
+      }
+
+      return spec.title;
     }
 
     function has(kind) {
@@ -690,11 +988,16 @@
     return {
       define: define,
       add: add,
+      addAt: addAt,
+      titleOf: titleOf,
       remove: remove,
       has: has,
       list: list,
+      boxes: boxes,
       kinds: kindList,
       restore: restore,
+      tidy: tidy,
+      arrange: arrange,
       saved: saved,
       boot: boot,
       refresh: refreshAll,

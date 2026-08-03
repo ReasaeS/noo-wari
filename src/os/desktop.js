@@ -165,24 +165,177 @@
       return found;
     }
 
-    function columns() {
-      var usable = window.innerHeight - TOP_MARGIN - CELL_HEIGHT;
+    function field() {
+      var bar = 0;
 
-      return Math.max(1, Math.floor(usable / CELL_HEIGHT) + 1);
+      if (typeof window.topbar != "undefined" && window.topbar.element.style.display != "none") {
+        bar = window.topbar.height();
+      }
+
+      var side = typeof window.layout == "undefined" ? "top" : window.layout.bar();
+
+      return {
+        left: LEFT_MARGIN,
+        top: side == "bottom" ? LEFT_MARGIN : TOP_MARGIN,
+        width: window.innerWidth - LEFT_MARGIN * 2,
+        height: window.innerHeight - bar - LEFT_MARGIN -
+          (side == "bottom" ? LEFT_MARGIN : TOP_MARGIN)
+      };
+    }
+
+    function fromTop() {
+      if (typeof window.layout == "undefined") {
+        return true;
+      }
+
+      return window.layout.fromTop();
+    }
+
+    function fromLeft() {
+      if (typeof window.layout == "undefined") {
+        return true;
+      }
+
+      return window.layout.fromLeft();
+    }
+
+    function downward() {
+      if (typeof window.layout == "undefined") {
+        return true;
+      }
+
+      return window.layout.down();
+    }
+
+    function columns() {
+      var usable = field().height;
+
+      return Math.max(1, Math.floor(usable / CELL_HEIGHT));
+    }
+
+    function lanes() {
+      var usable = field().width;
+
+      return Math.max(1, Math.floor(usable / CELL_WIDTH));
+    }
+
+    function cellFor(index) {
+      if (downward()) {
+        var rows = columns();
+
+        return { x: Math.floor(index / rows), y: index % rows };
+      }
+
+      var wide = lanes();
+
+      return { x: index % wide, y: Math.floor(index / wide) };
+    }
+
+    function spotOf(cell) {
+      var area = field();
+      var x = area.left + cell.x * CELL_WIDTH;
+      var y = area.top + cell.y * CELL_HEIGHT;
+
+      if (!fromLeft()) {
+        x = window.innerWidth - LEFT_MARGIN - CELL_WIDTH - cell.x * CELL_WIDTH;
+      }
+
+      if (!fromTop()) {
+        y = area.top + area.height - CELL_HEIGHT - cell.y * CELL_HEIGHT;
+      }
+
+      return { x: x, y: y };
+    }
+
+    function overlaps(a, b) {
+      return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    }
+
+    function boxOf(cell) {
+      var spot = spotOf(cell);
+
+      return {
+        left: spot.x,
+        top: spot.y,
+        right: spot.x + CELL_WIDTH,
+        bottom: spot.y + CELL_HEIGHT
+      };
+    }
+
+    function boxes() {
+      var found = [];
+      var items = itemList();
+
+      for (var i = 0; i < items.length; i++) {
+        found.push(boxOf(items[i]));
+      }
+
+      return found;
+    }
+
+    function blocked(cell) {
+      if (typeof window.widgets == "undefined") {
+        return false;
+      }
+
+      var taken = window.widgets.boxes(null);
+
+      if (taken.length == 0) {
+        return false;
+      }
+
+      var box = boxOf(cell);
+
+      for (var i = 0; i < taken.length; i++) {
+        if (overlaps(box, taken[i])) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function cellAt(x, y) {
+      var area = field();
+      var column = 0;
+      var row = 0;
+
+      if (fromLeft()) {
+        column = Math.round((x - area.left - CELL_WIDTH / 2) / CELL_WIDTH);
+      } else {
+        column = Math.round((window.innerWidth - LEFT_MARGIN - x - CELL_WIDTH / 2) / CELL_WIDTH);
+      }
+
+      if (fromTop()) {
+        row = Math.round((y - area.top - CELL_HEIGHT / 2) / CELL_HEIGHT);
+      } else {
+        row = Math.round((area.top + area.height - y - CELL_HEIGHT / 2) / CELL_HEIGHT);
+      }
+
+      return { x: Math.max(0, column), y: Math.max(0, row) };
     }
 
     function seed() {
       var names = seedNames();
       var host = desktopFolder();
-      var rows = columns();
 
       host.children = [];
 
+      var slot = 0;
+
       for (var i = 0; i < names.length; i++) {
         var aNode = window.filesystem.shortcut(names[i], names[i]);
+        var cell = cellFor(slot);
 
-        aNode.x = Math.floor(i / rows);
-        aNode.y = i % rows;
+        while (blocked(cell) && slot < 400) {
+          slot = slot + 1;
+          cell = cellFor(slot);
+        }
+
+        aNode.x = cell.x;
+        aNode.y = cell.y;
+
+        slot = slot + 1;
 
         host.children.push(aNode);
       }
@@ -229,13 +382,11 @@
     }
 
     function freeCell() {
-      var rows = columns();
+      for (var i = 0; i < 400; i++) {
+        var cell = cellFor(i);
 
-      for (var x = 0; x < 40; x++) {
-        for (var y = 0; y < rows; y++) {
-          if (itemAtCell(x, y, null) == null) {
-            return { x: x, y: y };
-          }
+        if (itemAtCell(cell.x, cell.y, null) == null && !blocked(cell)) {
+          return cell;
         }
       }
 
@@ -471,8 +622,10 @@
       var tileStyle = aTile.style;
 
       tileStyle.position = "absolute";
-      tileStyle.left = LEFT_MARGIN + anItem.x * CELL_WIDTH + "px";
-      tileStyle.top = TOP_MARGIN + anItem.y * CELL_HEIGHT + "px";
+      var spot = spotOf(anItem);
+
+      tileStyle.left = spot.x + "px";
+      tileStyle.top = spot.y + "px";
 
       if (anItem == selectedNode) {
         tileStyle.backgroundColor = "var(--nw-active)";
@@ -611,16 +764,16 @@
         return;
       }
 
-      var x = Math.round((event.clientX - LEFT_MARGIN - CELL_WIDTH / 2) / CELL_WIDTH);
-      var y = Math.round((event.clientY - TOP_MARGIN - CELL_HEIGHT / 2) / CELL_HEIGHT);
+      var cell = cellAt(event.clientX, event.clientY);
 
-      if (x < 0) {
-        x = 0;
+      if (blocked(cell)) {
+        paint();
+
+        return;
       }
 
-      if (y < 0) {
-        y = 0;
-      }
+      var x = cell.x;
+      var y = cell.y;
 
       var target = itemAtCell(x, y, anItem);
 
@@ -766,6 +919,35 @@
       showMenu(entries, x, y);
     }
 
+    function showWidgetMenu(x, y) {
+      var entries = [];
+
+      if (typeof window.widgets != "undefined") {
+        var kinds = window.widgets.kinds();
+
+        for (var i = 0; i < kinds.length; i++) {
+          entries.push({
+            label: window.widgets.titleOf(kinds[i]),
+            run: (function (kind) {
+              return function () {
+                hideMenu();
+                window.widgets.addAt(kind, x, y);
+              };
+            })(kinds[i])
+          });
+        }
+      }
+
+      if (entries.length == 0) {
+        entries.push({
+          label: "no widgets available",
+          run: hideMenu
+        });
+      }
+
+      showMenu(entries, x, y);
+    }
+
     function showDesktopMenu(x, y) {
       showMenu([
         {
@@ -773,6 +955,12 @@
           run: function () {
             hideMenu();
             addFolder("new folder");
+          }
+        },
+        {
+          label: "add widget",
+          run: function () {
+            showWidgetMenu(x, y);
           }
         },
         {
@@ -946,17 +1134,34 @@
       return true;
     }
 
-    function tidy() {
-      var rows = columns();
+    function tidyIcons() {
       var items = itemList();
+      var slot = 0;
 
       for (var i = 0; i < items.length; i++) {
-        items[i].x = Math.floor(i / rows);
-        items[i].y = i % rows;
+        var cell = cellFor(slot);
+
+        while (blocked(cell) && slot < 400) {
+          slot = slot + 1;
+          cell = cellFor(slot);
+        }
+
+        items[i].x = cell.x;
+        items[i].y = cell.y;
+
+        slot = slot + 1;
       }
 
       persist();
       paint();
+    }
+
+    function tidy() {
+      if (typeof window.widgets != "undefined" && typeof window.widgets.tidy == "function") {
+        window.widgets.tidy();
+      }
+
+      tidyIcons();
     }
 
     function reset() {
@@ -1096,20 +1301,31 @@
 
     window.filesystem.watch(paint);
 
+    if (typeof window.layout != "undefined") {
+      window.layout.watch(paint);
+    }
+
     paint();
 
     function grid() {
+      var area = field();
+
       return {
         cellWidth: CELL_WIDTH,
         cellHeight: CELL_HEIGHT,
-        left: LEFT_MARGIN,
-        top: TOP_MARGIN
+        left: area.left,
+        top: area.top,
+        right: LEFT_MARGIN,
+        bottom: window.innerHeight - area.top - area.height,
+        width: area.width,
+        height: area.height
       };
     }
 
     return {
       element: layer,
       grid: grid,
+      boxes: boxes,
       list: function () {
         return itemList().slice(0);
       },
@@ -1117,6 +1333,7 @@
       addFolder: addFolder,
       setPicture: setPicture,
       tidy: tidy,
+      tidyIcons: tidyIcons,
       reset: reset,
       paint: paint
     };
