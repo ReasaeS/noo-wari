@@ -197,6 +197,55 @@
       };
     }
 
+    function compact(isOn) {
+      for (var i = 0; i < workspaces.length; i++) {
+        workspaces[i].style.display = isOn ? "none" : "block";
+      }
+
+      for (var j = 0; j < modules.length; j++) {
+        if (modules[j].label == "date") {
+          modules[j].element.style.display = isOn ? "none" : "flex";
+        }
+      }
+
+      return true;
+    }
+
+    function addButton(label, onTap) {
+      var aButton = document.createElement("div");
+      var buttonStyle = aButton.style;
+
+      aButton.textContent = label;
+
+      buttonStyle.padding = "0px 10px";
+      buttonStyle.marginRight = "4px";
+      buttonStyle.height = "20px";
+      buttonStyle.display = "flex";
+      buttonStyle.alignItems = "center";
+      buttonStyle.borderRadius = "3px";
+      buttonStyle.fontSize = FONT_SIZE + "px";
+      buttonStyle.color = MUTED_COLOR;
+      buttonStyle.cursor = "pointer";
+      buttonStyle.userSelect = "none";
+      buttonStyle.whiteSpace = "nowrap";
+
+      function onEnter() {
+        buttonStyle.color = ACCENT_GREEN;
+      }
+
+      function onLeave() {
+        buttonStyle.color = MUTED_COLOR;
+      }
+
+      aButton.addEventListener("mouseenter", onEnter);
+      aButton.addEventListener("mouseleave", onLeave);
+      aButton.addEventListener("click", onTap);
+
+      leftSection.appendChild(aButton);
+
+      return aButton;
+    }
+
     function indexOfModule(label) {
       for (var i = 0; i < modules.length; i++) {
         if (modules[i].label == label) {
@@ -332,6 +381,8 @@
     return {
       element: aBar,
       addModule: addModule,
+      addButton: addButton,
+      compact: compact,
       removeModule: removeModule,
       selectWorkspace: selectWorkspace,
       setTitle: setTitle,
@@ -350,6 +401,14 @@
   topbar.addModule("time", ACCENT_GREEN, readClock);
 
   topbar.start();
+
+  function onDevice() {
+    topbar.compact(window.device.isPhone());
+  }
+
+  window.device.watch(onDevice);
+
+  onDevice();
 
   window.makeTopBar = makeTopBar;
   window.topbar = topbar;

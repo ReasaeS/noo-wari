@@ -16,6 +16,7 @@
   var ORB_LOGO_SIZE = 58;
   var ORB_GLYPH = "☰";
   var ORB_HINT = "ctrl + space";
+  var TOUCH_HINT = "tap to open";
   var ORB_Z_INDEX = 0;
   var OVERLAY_Z_INDEX = 1200;
 
@@ -86,7 +87,8 @@
       logoElement.image.addEventListener("error", onLogoError);
     }
 
-    hintElement.textContent = ORB_HINT;
+    hintElement.textContent =
+      typeof window.device != "undefined" && window.device.isTouch() ? TOUCH_HINT : ORB_HINT;
     hintElement.className = HINT_CLASS;
     hintElement.style.position = "absolute";
     hintElement.style.top = "100%";

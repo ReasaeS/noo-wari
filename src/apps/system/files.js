@@ -351,6 +351,10 @@
       aRow.addEventListener("mouseleave", onLeave);
       aRow.addEventListener("mousedown", onDown);
       aRow.addEventListener("click", onOpen);
+
+      if (aNode.kind == "folder") {
+        window.touch.surface(aRow);
+      }
       aRow.addEventListener("contextmenu", onMenu);
 
       aRow.appendChild(makeGlyph(aNode));

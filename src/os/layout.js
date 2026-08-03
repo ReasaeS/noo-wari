@@ -1,11 +1,8 @@
 (function () {
+  var STORAGE_KEY = "noo-wari.layout";
   var BARS = ["top", "bottom"];
-  var CORNERS = ["topLeft", "topRight", "bottomLeft", "bottomRight"];
-  var FLOWS = ["down", "across"];
 
   var DEFAULT_BAR = "top";
-  var DEFAULT_CORNER = "topLeft";
-  var DEFAULT_FLOW = "down";
 
   function pick(value, allowed, fallback) {
     for (var i = 0; i < allowed.length; i++) {
@@ -25,8 +22,6 @@
     }
 
     out.bar = pick(input.bar, BARS, DEFAULT_BAR);
-    out.corner = pick(input.corner, CORNERS, DEFAULT_CORNER);
-    out.flow = pick(input.flow, FLOWS, DEFAULT_FLOW);
 
     return out;
   }
@@ -34,6 +29,30 @@
   function makeLayout() {
     var current = clean(null);
     var watchers = [];
+
+    function store() {
+      window.storage.set(STORAGE_KEY, JSON.stringify(current));
+
+      return true;
+    }
+
+    function load() {
+      var raw = window.storage.get(STORAGE_KEY);
+
+      if (raw == null) {
+        return false;
+      }
+
+      try {
+        current = clean(JSON.parse(raw));
+      } catch (error) {
+        current = clean(null);
+
+        return false;
+      }
+
+      return true;
+    }
 
     function get() {
       return clean(current);
@@ -49,31 +68,10 @@
       return current.bar;
     }
 
-    function corner() {
-      return current.corner;
-    }
-
-    function flow() {
-      return current.flow;
-    }
-
-    function fromTop() {
-      return current.corner == "topLeft" || current.corner == "topRight";
-    }
-
-    function fromLeft() {
-      return current.corner == "topLeft" || current.corner == "bottomLeft";
-    }
-
-    function down() {
-      return current.flow == "down";
-    }
-
     function set(input) {
       var wanted = clean(input);
       var moved = wanted.bar != current.bar;
-      var same = wanted.bar == current.bar && wanted.corner == current.corner &&
-        wanted.flow == current.flow;
+      var same = wanted.bar == current.bar;
 
       current = wanted;
 
@@ -84,6 +82,8 @@
       if (moved && typeof window.desktops != "undefined") {
         window.desktops.refit();
       }
+
+      store();
 
       if (same) {
         return true;
@@ -101,14 +101,6 @@
         if (typeof input.bar == "string") {
           merged.bar = input.bar;
         }
-
-        if (typeof input.corner == "string") {
-          merged.corner = input.corner;
-        }
-
-        if (typeof input.flow == "string") {
-          merged.flow = input.flow;
-        }
       }
 
       return set(merged);
@@ -116,14 +108,6 @@
 
     function bars() {
       return BARS.slice(0);
-    }
-
-    function corners() {
-      return CORNERS.slice(0);
-    }
-
-    function flows() {
-      return FLOWS.slice(0);
     }
 
     function watch(handler) {
@@ -144,20 +128,21 @@
       return false;
     }
 
+    if (!load() && window.device.isPhone()) {
+      current = clean({ bar: "bottom" });
+    }
+
+    if (typeof window.topbar != "undefined" && typeof window.topbar.side == "function") {
+      window.topbar.side(current.bar);
+    }
+
     return {
       get: get,
       set: set,
       extend: extend,
       clean: clean,
       bar: bar,
-      corner: corner,
-      flow: flow,
-      fromTop: fromTop,
-      fromLeft: fromLeft,
-      down: down,
       bars: bars,
-      corners: corners,
-      flows: flows,
       watch: watch,
       unwatch: unwatch
     };

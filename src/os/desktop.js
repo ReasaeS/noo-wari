@@ -183,30 +183,6 @@
       };
     }
 
-    function fromTop() {
-      if (typeof window.layout == "undefined") {
-        return true;
-      }
-
-      return window.layout.fromTop();
-    }
-
-    function fromLeft() {
-      if (typeof window.layout == "undefined") {
-        return true;
-      }
-
-      return window.layout.fromLeft();
-    }
-
-    function downward() {
-      if (typeof window.layout == "undefined") {
-        return true;
-      }
-
-      return window.layout.down();
-    }
-
     function columns() {
       var usable = field().height;
 
@@ -220,31 +196,18 @@
     }
 
     function cellFor(index) {
-      if (downward()) {
-        var rows = columns();
+      var rows = columns();
 
-        return { x: Math.floor(index / rows), y: index % rows };
-      }
-
-      var wide = lanes();
-
-      return { x: index % wide, y: Math.floor(index / wide) };
+      return { x: Math.floor(index / rows), y: index % rows };
     }
 
     function spotOf(cell) {
       var area = field();
-      var x = area.left + cell.x * CELL_WIDTH;
-      var y = area.top + cell.y * CELL_HEIGHT;
 
-      if (!fromLeft()) {
-        x = window.innerWidth - LEFT_MARGIN - CELL_WIDTH - cell.x * CELL_WIDTH;
-      }
-
-      if (!fromTop()) {
-        y = area.top + area.height - CELL_HEIGHT - cell.y * CELL_HEIGHT;
-      }
-
-      return { x: x, y: y };
+      return {
+        x: area.left + cell.x * CELL_WIDTH,
+        y: area.top + cell.y * CELL_HEIGHT
+      };
     }
 
     function overlaps(a, b) {
@@ -297,20 +260,8 @@
 
     function cellAt(x, y) {
       var area = field();
-      var column = 0;
-      var row = 0;
-
-      if (fromLeft()) {
-        column = Math.round((x - area.left - CELL_WIDTH / 2) / CELL_WIDTH);
-      } else {
-        column = Math.round((window.innerWidth - LEFT_MARGIN - x - CELL_WIDTH / 2) / CELL_WIDTH);
-      }
-
-      if (fromTop()) {
-        row = Math.round((y - area.top - CELL_HEIGHT / 2) / CELL_HEIGHT);
-      } else {
-        row = Math.round((area.top + area.height - y - CELL_HEIGHT / 2) / CELL_HEIGHT);
-      }
+      var column = Math.round((x - area.left - CELL_WIDTH / 2) / CELL_WIDTH);
+      var row = Math.round((y - area.top - CELL_HEIGHT / 2) / CELL_HEIGHT);
 
       return { x: Math.max(0, column), y: Math.max(0, row) };
     }
@@ -597,6 +548,22 @@
         launch(anItem);
       }
 
+      function tapOpens() {
+        if (typeof window.device == "undefined") {
+          return false;
+        }
+
+        return window.device.isTouch() || window.device.isSmall();
+      }
+
+      function onTap() {
+        if (!tapOpens()) {
+          return;
+        }
+
+        launch(anItem);
+      }
+
       if (anItem.kind == "file") {
         aTile.title = anItem.name;
       }
@@ -609,6 +576,7 @@
       }
 
       aTile.addEventListener("dblclick", onOpen);
+      aTile.addEventListener("click", onTap);
       aTile.addEventListener("contextmenu", onMenu);
 
       aTile.item = anItem;
@@ -645,6 +613,8 @@
       }
 
       aTile.addEventListener("mousedown", onDown);
+
+      window.touch.surface(aTile);
 
       return aTile;
     }
@@ -1156,6 +1126,33 @@
       paint();
     }
 
+    function rescue() {
+      var items = itemList();
+      var wide = lanes();
+      var tall = columns();
+      var moved = false;
+
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].x < wide && items[i].y < tall) {
+          continue;
+        }
+
+        var cell = freeCell();
+
+        items[i].x = cell.x;
+        items[i].y = cell.y;
+
+        moved = true;
+      }
+
+      if (moved) {
+        persist();
+        paint();
+      }
+
+      return moved;
+    }
+
     function tidy() {
       if (typeof window.widgets != "undefined" && typeof window.widgets.tidy == "function") {
         window.widgets.tidy();
@@ -1305,6 +1302,8 @@
       window.layout.watch(paint);
     }
 
+    window.addEventListener("resize", rescue);
+
     paint();
 
     function grid() {
@@ -1334,6 +1333,7 @@
       setPicture: setPicture,
       tidy: tidy,
       tidyIcons: tidyIcons,
+      rescue: rescue,
       reset: reset,
       paint: paint
     };

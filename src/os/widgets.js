@@ -47,27 +47,15 @@
     return window.desktop.boxes();
   }
 
-  var FACING = {
-    topLeft: "bottomRight",
-    topRight: "bottomLeft",
-    bottomLeft: "topRight",
-    bottomRight: "topLeft"
-  };
+  var FACING_CORNER = "bottomRight";
+  var FACING_FLOW = "down";
 
   function facingCorner() {
-    if (typeof window.layout == "undefined") {
-      return FACING.topLeft;
-    }
-
-    return FACING[window.layout.corner()];
+    return FACING_CORNER;
   }
 
   function facingFlow() {
-    if (typeof window.layout == "undefined") {
-      return "down";
-    }
-
-    return window.layout.flow();
+    return FACING_FLOW;
   }
 
   function isAnchor(name) {
@@ -410,56 +398,6 @@
       showMenu(entries, x, y);
     }
 
-    function arrange(list) {
-      if (!(list instanceof Array)) {
-        return false;
-      }
-
-      var used = [];
-
-      for (var i = 0; i < list.length; i++) {
-        var spot = list[i];
-        var anItem = null;
-        var index = indexOfId(spot.id);
-
-        if (index != -1) {
-          anItem = items[index];
-        } else {
-          for (var j = 0; j < items.length; j++) {
-            if (items[j].kind == spot.kind && used.indexOf(items[j].id) == -1) {
-              anItem = items[j];
-
-              break;
-            }
-          }
-        }
-
-        if (anItem == null || anItem.frame == null) {
-          continue;
-        }
-
-        used.push(anItem.id);
-
-        if (isAnchor(spot.anchor)) {
-          anItem.anchor = spot.anchor;
-        }
-
-        if (typeof spot.x == "number") {
-          anItem.x = spot.x;
-        }
-
-        if (typeof spot.y == "number") {
-          anItem.y = spot.y;
-        }
-
-        place(anItem);
-      }
-
-      store();
-
-      return true;
-    }
-
     function tidy() {
       var cells = grid();
       var wall = facingCorner();
@@ -751,6 +689,8 @@
       aFrame.addEventListener("mousedown", onDown);
       aFrame.addEventListener("contextmenu", onMenu);
 
+      window.touch.surface(aFrame);
+
       place(anItem);
 
       layer.appendChild(aFrame);
@@ -997,7 +937,6 @@
       kinds: kindList,
       restore: restore,
       tidy: tidy,
-      arrange: arrange,
       saved: saved,
       boot: boot,
       refresh: refreshAll,

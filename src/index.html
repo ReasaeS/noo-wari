@@ -4,7 +4,7 @@
     <!-- Browser Behaviour -->
     <base href="/" />
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
     <!-- Info -->
@@ -38,18 +38,32 @@
             padding: 0;
             width: 100%;
             height: 100%;
+            height: 100dvh;
             overflow: hidden;
             overscroll-behavior: none;
             background-color: black;
             color: white;
+            -webkit-text-size-adjust: 100%;
         }
 
         body {
             position: fixed;
             inset: 0;
         }
+
+        @media (pointer: coarse) {
+            input, textarea, select {
+                font-size: 16px !important;
+            }
+
+            button {
+                min-height: 32px !important;
+            }
+        }
     </style>
 
+    <script src="os/device.js"></script>
+    <script src="os/touch.js"></script>
     <script src="os/theme.js"></script>
     <script src="os/logo.js"></script>
     <script src="os/icons.js"></script>
@@ -67,33 +81,38 @@
     <script src="os/window.js"></script>
 
     <script src="apps/app.js"></script>
-    <script src="apps/terminal.js"></script>
-    <script src="apps/notes.js"></script>
-    <script src="apps/todo.js"></script>
-    <script src="apps/calculator.js"></script>
-    <script src="apps/convert.js"></script>
-    <script src="apps/colors.js"></script>
-    <script src="apps/clock.js"></script>
-    <script src="apps/sysinfo.js"></script>
-    <script src="apps/files.js"></script>
-    <script src="apps/wipe.js"></script>
-    <script src="apps/about.js"></script>
-    <script src="apps/themer.js"></script>
-    <script src="apps/transfer.js"></script>
-    <script src="apps/paint.js"></script>
-    <script src="apps/player.js"></script>
-    <script src="apps/piano.js"></script>
-    <script src="apps/shadertoy.js"></script>
-    <script src="apps/matrix.js"></script>
-    <script src="apps/life.js"></script>
-    <script src="apps/typing.js"></script>
-    <script src="apps/minesweeper.js"></script>
-    <script src="apps/sudoku.js"></script>
-    <script src="apps/memory.js"></script>
-    <script src="apps/snake.js"></script>
-    <script src="apps/tetris.js"></script>
-    <script src="apps/2048.js"></script>
-    <script src="apps/breakout.js"></script>
+
+    <script src="apps/system/about.js"></script>
+    <script src="apps/system/files.js"></script>
+    <script src="apps/system/sysinfo.js"></script>
+    <script src="apps/system/terminal.js"></script>
+    <script src="apps/system/themer.js"></script>
+    <script src="apps/system/transfer.js"></script>
+    <script src="apps/system/wipe.js"></script>
+
+    <script src="apps/games/2048.js"></script>
+    <script src="apps/games/breakout.js"></script>
+    <script src="apps/games/life.js"></script>
+    <script src="apps/games/memory.js"></script>
+    <script src="apps/games/minesweeper.js"></script>
+    <script src="apps/games/snake.js"></script>
+    <script src="apps/games/sudoku.js"></script>
+    <script src="apps/games/tetris.js"></script>
+    <script src="apps/games/typing.js"></script>
+
+    <script src="apps/art/colors.js"></script>
+    <script src="apps/art/matrix.js"></script>
+    <script src="apps/art/paint.js"></script>
+    <script src="apps/art/shadertoy.js"></script>
+
+    <script src="apps/audio/piano.js"></script>
+    <script src="apps/audio/player.js"></script>
+
+    <script src="apps/tools/calculator.js"></script>
+    <script src="apps/tools/clock.js"></script>
+    <script src="apps/tools/convert.js"></script>
+    <script src="apps/tools/notes.js"></script>
+    <script src="apps/tools/todo.js"></script>
 
     <script src="os/desktop.js"></script>
 

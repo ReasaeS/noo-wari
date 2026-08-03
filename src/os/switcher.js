@@ -73,7 +73,7 @@
     return aDot;
   }
 
-  function makeEntry(aWindow, isActive) {
+  function makeEntry(aWindow, isActive, onPick) {
     var anEntry = document.createElement("div");
     var entryStyle = anEntry.style;
 
@@ -101,6 +101,11 @@
     entryStyle.padding = "7px 14px";
     entryStyle.whiteSpace = "nowrap";
     entryStyle.overflow = "hidden";
+    entryStyle.cursor = "pointer";
+
+    if (typeof onPick == "function") {
+      anEntry.addEventListener("click", onPick);
+    }
 
     if (isActive) {
       entryStyle.backgroundColor = ACTIVE_COLOR;
@@ -163,7 +168,13 @@
       }
 
       for (var i = 0; i < session.length; i++) {
-        aPanel.appendChild(makeEntry(session[i], i == activeIndex));
+        aPanel.appendChild(makeEntry(session[i], i == activeIndex, (function (index) {
+          return function () {
+            activeIndex = index;
+
+            commit();
+          };
+        })(i)));
       }
     }
 
@@ -180,7 +191,19 @@
 
       anOverlay.style.display = "flex";
 
+      paint();
+
       return true;
+    }
+
+    function open() {
+      if (session != null) {
+        cancel();
+
+        return false;
+      }
+
+      return start("");
     }
 
     function step(amount) {
@@ -283,6 +306,7 @@
     return {
       element: anOverlay,
       start: start,
+      open: open,
       step: step,
       commit: commit,
       cancel: cancel
@@ -290,6 +314,16 @@
   }
 
   var switcher = makeSwitcher();
+
+  if (window.device.isTouch() && typeof window.topbar != "undefined") {
+    window.topbar.addButton("apps", function () {
+      window.launcher.toggle();
+    });
+
+    window.topbar.addButton("windows", function () {
+      switcher.open();
+    });
+  }
 
   window.makeSwitcher = makeSwitcher;
   window.switcher = switcher;

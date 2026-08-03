@@ -284,6 +284,10 @@
 
       appWindow = window.makeWindow(width, height);
 
+      if (typeof window.device != "undefined" && window.device.isPhone()) {
+        appWindow.snap("top");
+      }
+
       appWindow.titleBar.appendChild(makeTitle(name));
 
       var aSheet = makeSheet();

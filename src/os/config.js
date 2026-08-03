@@ -449,7 +449,16 @@
         window.location.reload();
       }
 
+      var sideRow = makeRow("bar side");
+
+      sideRow.appendChild(
+        makeSelect(window.layout.bars(), window.layout.bar(), function (picked) {
+          window.layout.set({ bar: picked });
+        })
+      );
+
       aPage.appendChild(makeToggleRow("top bar", readTopBar, writeTopBar));
+      aPage.appendChild(sideRow);
       aPage.appendChild(makeToggleRow("fullscreen", readFullscreen, writeFullscreen));
       aPage.appendChild(makeActionRow("session", "reload", onReload));
     }

@@ -1,7 +1,10 @@
 (function () {
   var TITLE_BAR_HEIGHT = 26;
+  var TOUCH_BAR_HEIGHT = 36;
   var BUTTON_SIZE = 14;
+  var TOUCH_BUTTON_SIZE = 20;
   var RESIZE_MARGIN = 8;
+  var TOUCH_RESIZE_MARGIN = 14;
   var MIN_WIDTH = 120;
   var MIN_HEIGHT = TITLE_BAR_HEIGHT + 20;
 
@@ -97,6 +100,26 @@
   var activeDesktop = 0;
   var activeWindow = null;
   var windowCount = 0;
+
+  function locked() {
+    return typeof window.device != "undefined" && window.device.isPhone();
+  }
+
+  function coarse() {
+    return typeof window.device != "undefined" && window.device.isTouch();
+  }
+
+  function barHeightFor() {
+    return coarse() ? TOUCH_BAR_HEIGHT : TITLE_BAR_HEIGHT;
+  }
+
+  function buttonSizeFor() {
+    return coarse() ? TOUCH_BUTTON_SIZE : BUTTON_SIZE;
+  }
+
+  function grabFor() {
+    return coarse() ? TOUCH_RESIZE_MARGIN : RESIZE_MARGIN;
+  }
 
   function makeWindowColor() {
     var hue = (HUE_START + windowCount * HUE_STEP) % 360;
@@ -225,8 +248,8 @@
     var aButton = document.createElement("div");
     var setProp = makeStyler(aButton).setProp;
 
-    setProp("width", BUTTON_SIZE, "px");
-    setProp("height", BUTTON_SIZE, "px");
+    setProp("width", buttonSizeFor(), "px");
+    setProp("height", buttonSizeFor(), "px");
     setProp("backgroundColor", color);
     setProp("borderStyle", "solid");
     setProp("borderColor", BUTTON_BORDER_COLOR);
@@ -239,6 +262,7 @@
     setProp("cursor", "pointer");
     setProp("position", "relative");
     setProp("zIndex", 3);
+    setProp("marginRight", coarse() ? 10 : 6, "px");
 
     aButton.addEventListener("click", onClick);
 
@@ -249,7 +273,7 @@
     var aTitleBar = document.createElement("div");
     var setProp = makeStyler(aTitleBar).setProp;
 
-    setProp("height", TITLE_BAR_HEIGHT, "px");
+    setProp("height", barHeightFor(), "px");
     setProp("backgroundColor", TITLE_BAR_COLOR);
     setProp("borderBottomStyle", "solid");
     setProp("borderColor", BORDER_COLOR);
@@ -412,7 +436,7 @@
 
   function makeDraggable(aWindow, windowStyler, aHandle, onDragStart, onDragEnd) {
     function startDrag(event) {
-      if (event.target != aHandle) {
+      if (event.target != aHandle || locked()) {
         return;
       }
 
@@ -449,6 +473,8 @@
 
     aHandle.addEventListener("mousedown", startDrag);
 
+    window.touch.surface(aHandle);
+
     return aHandle;
   }
 
@@ -482,17 +508,21 @@
       setProp("left", 0, "px");
       setProp("width", 100, "%");
     } else {
-      setProp("width", RESIZE_MARGIN, "px");
+      setProp("width", grabFor(), "px");
     }
 
     if (edge.yFactor == 0) {
       setProp("top", 0, "px");
       setProp("height", 100, "%");
     } else {
-      setProp("height", RESIZE_MARGIN, "px");
+      setProp("height", grabFor(), "px");
     }
 
     function startResize(event) {
+      if (locked()) {
+        return;
+      }
+
       event.preventDefault();
 
       var box = aWindow.getBoundingClientRect();
@@ -552,6 +582,8 @@
 
     aResizer.addEventListener("mousedown", startResize);
 
+    window.touch.surface(aResizer);
+
     return aResizer;
   }
 
@@ -567,6 +599,16 @@
 
     if (typeof height == "undefined") {
       height = window.innerHeight * 0.7;
+    }
+
+    var area = workArea();
+
+    if (width > area.width) {
+      width = area.width;
+    }
+
+    if (height > area.height) {
+      height = area.height;
     }
 
     setProp("width", width, "px");
@@ -654,6 +696,10 @@
       }
 
       isClosed = true;
+
+      if (typeof window.device != "undefined") {
+        window.device.unwatch(paintChrome);
+      }
 
       paintStack();
     }
@@ -763,16 +809,6 @@
       return true;
     }
 
-    function tuck() {
-      if (isClosed || isMinimized) {
-        return false;
-      }
-
-      minimize();
-
-      return true;
-    }
-
     function refit() {
       if (isClosed || snapSide == "") {
         return false;
@@ -809,9 +845,21 @@
       aWindow.maximize();
     }
 
+    var maximizeButton = makeButton(MAXIMIZE_COLOR, maximizeWindow);
+
+    function paintChrome() {
+      maximizeButton.style.display = locked() ? "none" : "inline-block";
+    }
+
     titleBar.appendChild(makeButton(CLOSE_COLOR, closeWindow));
     titleBar.appendChild(makeButton(MINIMIZE_COLOR, minimizeWindow));
-    titleBar.appendChild(makeButton(MAXIMIZE_COLOR, maximizeWindow));
+    titleBar.appendChild(maximizeButton);
+
+    paintChrome();
+
+    if (typeof window.device != "undefined") {
+      window.device.watch(paintChrome);
+    }
 
     var content = makeContent();
 
@@ -848,7 +896,6 @@
     aWindow.setStack = setStack;
     aWindow.paintFocus = paintFocus;
     aWindow.restore = restore;
-    aWindow.tuck = tuck;
     aWindow.desktop = activeDesktop;
     aWindow.color = makeWindowColor();
 
