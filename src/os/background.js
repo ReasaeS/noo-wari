@@ -633,12 +633,23 @@
       return names.slice(0);
     }
 
+    function fits() {
+      var found = [];
+
+      for (var i = 0; i < FITS.length; i++) {
+        found.push(FITS[i].name);
+      }
+
+      return found;
+    }
+
     return {
       fill: makeFill,
       gradient: makeGradient,
       image: makeImage,
       shader: makeShader,
       source: sourceOf,
+      fits: fits,
       supportsShaders: supportsShaders,
       error: error,
       add: add,

@@ -292,6 +292,8 @@
           window.localStorage.removeItem(doomed[i]);
         }
 
+        window.vault.clear();
+
         return doomed.length;
       }
 

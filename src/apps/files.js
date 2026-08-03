@@ -2,6 +2,8 @@
   var INDEX_PATH = "__files";
   var LOCAL_LIMIT = 5 * 1024 * 1024;
 
+  var TEXT_TYPES = ["application/json", "application/xml", "application/javascript"];
+
   var HOME_PLACE = "home";
   var SERVER_PLACE = "server";
   var DEVICE_PLACE = "device";
@@ -128,6 +130,15 @@
     var trail = [home];
     var openFile = null;
     var editor = null;
+    var preview = "";
+
+    function release(href) {
+      if (typeof href == "string" && href != "") {
+        window.vault.release(href);
+      }
+
+      return true;
+    }
 
     var pathValue = ui.value("home");
 
@@ -495,12 +506,90 @@
       return aViewer;
     }
 
-    function paintEditor(aNode) {
+    function isText(aNode) {
+      if (typeof aNode.type != "string" || aNode.type == "") {
+        return true;
+      }
+
+      if (aNode.type.indexOf("text/") == 0) {
+        return true;
+      }
+
+      return TEXT_TYPES.indexOf(aNode.type) != -1;
+    }
+
+    function isPicture(aNode) {
+      return typeof aNode.type == "string" && aNode.type.indexOf("image/") == 0;
+    }
+
+    function paintOpaque(aNode) {
+      ui.clear(content);
+
+      content.appendChild(makeInfoRow(aNode.name, formatBytes(aNode.size)));
+      content.appendChild(makeInfoRow("type", aNode.type));
+
+      if (!isPicture(aNode)) {
+        var note = ui.label("stored in the vault, no preview for this type");
+
+        note.style.display = "block";
+        note.style.padding = "10px 0px";
+
+        content.appendChild(note);
+
+        return;
+      }
+
+      var aFrame = document.createElement("img");
+
+      aFrame.alt = aNode.name;
+      aFrame.draggable = false;
+
+      aFrame.style.display = "block";
+      aFrame.style.marginTop = "10px";
+      aFrame.style.maxWidth = "100%";
+      aFrame.style.borderRadius = "4px";
+      aFrame.style.borderStyle = "solid";
+      aFrame.style.borderWidth = "1px";
+      aFrame.style.borderColor = ui.BORDER_COLOR;
+
+      content.appendChild(aFrame);
+
+      window.vault.url(aNode.blob, aNode.type).then(function (href) {
+        if (href == "" || aFrame.parentNode == null) {
+          window.vault.release(href);
+
+          return;
+        }
+
+        release(preview);
+
+        preview = href;
+        aFrame.src = href;
+      });
+    }
+
+    function paintFile(aNode) {
+      if (!isText(aNode)) {
+        paintOpaque(aNode);
+
+        return;
+      }
+
+      window.filesystem.read(aNode).then(function (body) {
+        if (openFile != aNode) {
+          return;
+        }
+
+        paintEditor(aNode, body);
+      });
+    }
+
+    function paintEditor(aNode, body) {
       ui.clear(content);
 
       editor = document.createElement("textarea");
 
-      editor.value = aNode.body;
+      editor.value = body;
       editor.spellcheck = false;
 
       editor.style.width = "100%";
@@ -616,6 +705,17 @@
         );
       }
 
+      content.appendChild(makeHeading("vault"));
+
+      var vaultNote = ui.label("counting stored files…");
+
+      vaultNote.style.display = "block";
+      vaultNote.style.padding = "6px 0px";
+
+      content.appendChild(vaultNote);
+
+      paintVault(vaultNote);
+
       content.appendChild(makeHeading("origin quota"));
 
       var note = ui.label("asking the browser…");
@@ -626,6 +726,36 @@
       content.appendChild(note);
 
       paintQuota(note);
+    }
+
+    function paintVault(note) {
+      if (!window.vault.supported()) {
+        note.textContent = "indexeddb is not available in this browser";
+
+        return;
+      }
+
+      window.vault.count().then(function (stored) {
+        return window.vault.measure().then(function (bytes) {
+          if (place != DEVICE_PLACE) {
+            return;
+          }
+
+          var host = note.parentNode;
+
+          if (host == null) {
+            return;
+          }
+
+          host.removeChild(note);
+
+          host.appendChild(makeInfoRow("file contents", formatBytes(bytes)));
+          host.appendChild(makeInfoRow("blobs", "" + stored));
+          host.appendChild(makeInfoRow("kept in", "indexeddb"));
+        });
+      }).catch(function () {
+        note.textContent = "the vault could not be read";
+      });
     }
 
     function paintQuota(note) {
@@ -910,7 +1040,7 @@
         if (openFile.kind == "remote") {
           paintRemote(openFile);
         } else {
-          paintEditor(openFile);
+          paintFile(openFile);
         }
 
         return;
@@ -973,10 +1103,9 @@
         return;
       }
 
-      openFile.body = editor.value;
-
-      persist();
-      paint();
+      window.filesystem.write(openFile, editor.value).then(function () {
+        paint();
+      });
     }
 
     function deleteFile() {
@@ -984,13 +1113,7 @@
         return;
       }
 
-      var host = here();
-
-      for (var i = 0; i < host.children.length; i++) {
-        if (host.children[i] == openFile) {
-          host.children.splice(i, 1);
-        }
-      }
+      window.filesystem.remove(here(), openFile);
 
       openFile = null;
       editor = null;
@@ -1062,6 +1185,91 @@
     aSheet.appendChild(toolbar);
     aSheet.appendChild(body);
 
+    function canReceive() {
+      return place == HOME_PLACE && openFile == null;
+    }
+
+    function hasFiles(event) {
+      var carrier = event.dataTransfer;
+
+      if (carrier == null) {
+        return false;
+      }
+
+      if (carrier.types == null) {
+        return false;
+      }
+
+      for (var i = 0; i < carrier.types.length; i++) {
+        if (carrier.types[i] == "Files") {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function litUp(isOn) {
+      if (isOn) {
+        content.style.outlineStyle = "dashed";
+        content.style.outlineWidth = "2px";
+        content.style.outlineOffset = "-6px";
+        content.style.outlineColor = ui.ACCENT_COLOR;
+      } else {
+        content.style.outlineStyle = "none";
+      }
+    }
+
+    function onDragOver(event) {
+      if (!hasFiles(event) || !canReceive()) {
+        return;
+      }
+
+      event.preventDefault();
+
+      event.dataTransfer.dropEffect = "copy";
+
+      litUp(true);
+    }
+
+    function onDragLeave(event) {
+      if (event.target != content) {
+        return;
+      }
+
+      litUp(false);
+    }
+
+    function onDrop(event) {
+      if (!hasFiles(event) || !canReceive()) {
+        return;
+      }
+
+      event.preventDefault();
+
+      litUp(false);
+
+      var dropped = event.dataTransfer.files;
+
+      if (dropped == null || dropped.length == 0) {
+        return;
+      }
+
+      var host = here();
+
+      window.filesystem.receive(host, dropped).then(function (landed) {
+        if (landed.length == 0) {
+          return;
+        }
+
+        paint();
+      });
+    }
+
+    content.addEventListener("dragover", onDragOver);
+    content.addEventListener("dragleave", onDragLeave);
+    content.addEventListener("drop", onDrop);
+
     paint();
 
     function onChange() {
@@ -1083,6 +1291,10 @@
 
     function teardown() {
       window.filesystem.unwatch(onChange);
+
+      release(preview);
+
+      preview = "";
 
       if (current == show) {
         current = null;

@@ -11,8 +11,7 @@
 
   var CONTACT = [
     { label: "email", value: "reasae.nostos@proton.me", href: "mailto:reasae.nostos@proton.me" },
-    { label: "github", value: "github.com/ReasaeS", href: "https://github.com/ReasaeS" },
-    { label: "elsewhere", value: "add your own", href: "" }
+    { label: "github", value: "github.com/ReasaeS", href: "https://github.com/ReasaeS" }
   ];
 
   function makeHeading(text) {

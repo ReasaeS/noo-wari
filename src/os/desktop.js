@@ -9,176 +9,7 @@
   var FOLDER_WIDTH = 440;
   var FOLDER_HEIGHT = 320;
   var ICON_PIXELS = 88;
-  var ICON_PATH = "icons/";
-  var STOCK_NAMES = ["terminal", "files", "config", "about"];
-  var LOGO_NAMES = ["about"];
-  var LOGO_INNER = 34;
   var DRAG_THRESHOLD = 5;
-
-  var stockArt = new Object();
-  var logoFrames = [];
-
-  function isLogoName(name) {
-    for (var i = 0; i < LOGO_NAMES.length; i++) {
-      if (LOGO_NAMES[i] == name) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  function stockIcon(name) {
-    if (isLogoName(name)) {
-      return "";
-    }
-
-    for (var i = 0; i < STOCK_NAMES.length; i++) {
-      if (STOCK_NAMES[i] == name) {
-        return ICON_PATH + name + ".svg";
-      }
-    }
-
-    return "";
-  }
-
-  function releaseLogos() {
-    var kept = [];
-
-    for (var i = 0; i < logoFrames.length; i++) {
-      if (logoFrames[i].isConnected) {
-        kept.push(logoFrames[i]);
-      } else if (logoFrames[i].image != null) {
-        window.logo.forget(logoFrames[i].image);
-      }
-    }
-
-    logoFrames = kept;
-  }
-
-  function makeLogoArt() {
-    releaseLogos();
-
-    var anArt = makeChip();
-    var aFrame = window.logo.mark(LOGO_INNER);
-
-    if (aFrame.image == null) {
-      aFrame.style.backgroundColor = "transparent";
-    }
-
-    anArt.appendChild(aFrame);
-
-    logoFrames.push(aFrame);
-
-    return anArt;
-  }
-
-  function makeFolderArt() {
-    var anArt = document.createElement("div");
-    var artStyle = anArt.style;
-
-    var tab = document.createElement("div");
-    var body = document.createElement("div");
-
-    artStyle.position = "relative";
-    artStyle.width = ICON_SIZE + "px";
-    artStyle.height = ICON_SIZE + "px";
-
-    tab.style.position = "absolute";
-    tab.style.left = "2px";
-    tab.style.top = "7px";
-    tab.style.width = "17px";
-    tab.style.height = "7px";
-    tab.style.borderRadius = "3px 3px 0px 0px";
-    tab.style.backgroundColor = "var(--nw-warn)";
-
-    body.style.position = "absolute";
-    body.style.left = "2px";
-    body.style.top = "12px";
-    body.style.width = ICON_SIZE - 4 + "px";
-    body.style.height = ICON_SIZE - 18 + "px";
-    body.style.borderRadius = "3px";
-    body.style.backgroundColor = "var(--nw-warn)";
-    body.style.opacity = "0.86";
-
-    anArt.appendChild(tab);
-    anArt.appendChild(body);
-
-    return anArt;
-  }
-
-  function makeChip() {
-    var anArt = document.createElement("div");
-    var artStyle = anArt.style;
-
-    artStyle.width = ICON_SIZE + "px";
-    artStyle.height = ICON_SIZE + "px";
-    artStyle.boxSizing = "border-box";
-    artStyle.display = "flex";
-    artStyle.alignItems = "center";
-    artStyle.justifyContent = "center";
-    artStyle.borderRadius = "9px";
-    artStyle.borderStyle = "solid";
-    artStyle.borderWidth = "1px";
-    artStyle.borderColor = "var(--nw-tertiary)";
-    artStyle.backgroundColor = "var(--nw-secondary)";
-    artStyle.color = "var(--nw-accent)";
-    artStyle.fontSize = "20px";
-
-    return anArt;
-  }
-
-  function makeAppArt(name) {
-    var anArt = makeChip();
-
-    anArt.textContent = name.charAt(0).toUpperCase();
-
-    return anArt;
-  }
-
-  function makeStockArt(name) {
-    var anArt = makeChip();
-    var src = stockIcon(name);
-
-    if (stockArt[src] != null) {
-      anArt.innerHTML = stockArt[src];
-
-      return anArt;
-    }
-
-    fetch(src).then(function (response) {
-      if (!response.ok) {
-        throw new Error("missing");
-      }
-
-      return response.text();
-    }).then(function (markup) {
-      stockArt[src] = markup;
-
-      anArt.innerHTML = markup;
-    }).catch(function () {
-      anArt.textContent = name.charAt(0).toUpperCase();
-    });
-
-    return anArt;
-  }
-
-  function makePictureArt(src) {
-    var anImage = document.createElement("img");
-    var imageStyle = anImage.style;
-
-    anImage.src = src;
-    anImage.alt = "";
-    anImage.draggable = false;
-
-    imageStyle.width = ICON_SIZE + "px";
-    imageStyle.height = ICON_SIZE + "px";
-    imageStyle.objectFit = "cover";
-    imageStyle.borderRadius = "9px";
-    imageStyle.display = "block";
-
-    return anImage;
-  }
 
   function shrink(src, onDone) {
     var anImage = new Image();
@@ -227,22 +58,14 @@
 
   function makeArt(anItem) {
     if (typeof anItem.icon == "string" && anItem.icon != "") {
-      return makePictureArt(anItem.icon);
+      return window.icons.picture(anItem.icon, ICON_SIZE);
     }
 
     if (anItem.kind == "folder") {
-      return makeFolderArt();
+      return window.icons.folder(ICON_SIZE);
     }
 
-    if (isLogoName(anItem.name)) {
-      return makeLogoArt();
-    }
-
-    if (stockIcon(anItem.name) != "") {
-      return makeStockArt(anItem.name);
-    }
-
-    return makeAppArt(anItem.name);
+    return window.icons.app(anItem.name, ICON_SIZE);
   }
 
   function makeMenu() {
@@ -331,10 +154,11 @@
 
     function seedNames() {
       var found = [];
+      var stock = window.icons.names();
 
-      for (var i = 0; i < STOCK_NAMES.length; i++) {
-        if (isRegistered(STOCK_NAMES[i])) {
-          found.push(STOCK_NAMES[i]);
+      for (var i = 0; i < stock.length; i++) {
+        if (isRegistered(stock[i])) {
+          found.push(stock[i]);
         }
       }
 
@@ -1193,8 +1017,58 @@
     layer.style.zIndex = LAYER_Z_INDEX;
     layer.style.fontFamily = window.ui.FONT_FAMILY;
 
+    function hasFiles(event) {
+      var carrier = event.dataTransfer;
+
+      if (carrier == null || carrier.types == null) {
+        return false;
+      }
+
+      for (var i = 0; i < carrier.types.length; i++) {
+        if (carrier.types[i] == "Files") {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function onDragOver(event) {
+      if (!hasFiles(event)) {
+        return;
+      }
+
+      event.preventDefault();
+
+      event.dataTransfer.dropEffect = "copy";
+    }
+
+    function onDrop(event) {
+      if (!hasFiles(event)) {
+        return;
+      }
+
+      event.preventDefault();
+
+      var dropped = event.dataTransfer.files;
+
+      if (dropped == null || dropped.length == 0) {
+        return;
+      }
+
+      window.filesystem.receive(desktopFolder(), dropped).then(function (landed) {
+        if (landed.length == 0) {
+          return;
+        }
+
+        tidy();
+      });
+    }
+
     layer.addEventListener("mousedown", onLayerDown);
     layer.addEventListener("contextmenu", onLayerMenu);
+    layer.addEventListener("dragover", onDragOver);
+    layer.addEventListener("drop", onDrop);
 
     document.addEventListener("mousedown", onGlobalDown);
 
@@ -1224,8 +1098,18 @@
 
     paint();
 
+    function grid() {
+      return {
+        cellWidth: CELL_WIDTH,
+        cellHeight: CELL_HEIGHT,
+        left: LEFT_MARGIN,
+        top: TOP_MARGIN
+      };
+    }
+
     return {
       element: layer,
+      grid: grid,
       list: function () {
         return itemList().slice(0);
       },

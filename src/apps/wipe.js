@@ -104,7 +104,11 @@
         return false;
       }
 
-      window.location.reload();
+      window.vault.clear().then(function () {
+        window.location.reload();
+      }).catch(function () {
+        window.location.reload();
+      });
 
       return true;
     }
@@ -152,8 +156,8 @@
       var warning = document.createElement("div");
 
       warning.textContent =
-        "this erases every key above, including anything not written by noo-wari. " +
-        "it cannot be undone.";
+        "this erases every key above, including anything not written by noo-wari, " +
+        "and every file kept in the indexeddb vault. it cannot be undone.";
 
       warning.style.fontSize = "12px";
       warning.style.lineHeight = "1.6";

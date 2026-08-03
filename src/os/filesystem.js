@@ -3,6 +3,7 @@
   var LEGACY_KEY = "noo-wari.desktop";
   var DESKTOP_NAME = "desktop";
   var SYSTEM_NAMES = ["desktop"];
+  var TEXT_TYPE = "text/plain";
 
   function isStarZone(anElement) {
     while (anElement != null) {
@@ -29,12 +30,35 @@
     return aNode;
   }
 
+  function sizeOf(body) {
+    return window.vault.weigh(body);
+  }
+
   function makeFile(name, body) {
     var aNode = new Object();
 
     aNode.kind = "file";
     aNode.name = name;
-    aNode.body = body;
+    aNode.blob = window.vault.mint(name);
+    aNode.size = sizeOf(body);
+    aNode.type = TEXT_TYPE;
+    aNode.icon = "";
+    aNode.x = 0;
+    aNode.y = 0;
+
+    window.vault.put(aNode.blob, body);
+
+    return aNode;
+  }
+
+  function adoptFile(name, aFile) {
+    var aNode = new Object();
+
+    aNode.kind = "file";
+    aNode.name = name;
+    aNode.blob = window.vault.mint(name);
+    aNode.size = aFile.size;
+    aNode.type = aFile.type == "" ? TEXT_TYPE : aFile.type;
     aNode.icon = "";
     aNode.x = 0;
     aNode.y = 0;
@@ -115,8 +139,9 @@
       makeFile(
         "welcome.txt",
         "this is your file system.\n\n" +
-          "it lives in local storage, so it survives reloads.\n" +
-          "anything inside home/desktop also appears on the desktop.\n\n" +
+          "file contents live in indexeddb, the tree lives in local storage.\n" +
+          "anything inside home/desktop also appears on the desktop.\n" +
+          "drop files from your computer onto this window to bring them in.\n\n" +
           "the server tab lists everything in the web root, read only."
       )
     );
@@ -225,7 +250,13 @@
     function remove(host, aNode) {
       for (var i = 0; i < host.children.length; i++) {
         if (host.children[i] == aNode) {
+          var doomed = blobsUnder(aNode, []);
+
           host.children.splice(i, 1);
+
+          for (var j = 0; j < doomed.length; j++) {
+            window.vault.remove(doomed[j]);
+          }
 
           return true;
         }
@@ -264,10 +295,102 @@
       }
 
       if (aNode.kind == "file") {
-        return (aNode.name.length + aNode.body.length) * 2;
+        if (typeof aNode.size == "number") {
+          return aNode.size;
+        }
+
+        return 0;
       }
 
       return aNode.name.length * 2;
+    }
+
+    function blobsUnder(aNode, found) {
+      if (aNode.kind == "folder") {
+        for (var i = 0; i < aNode.children.length; i++) {
+          blobsUnder(aNode.children[i], found);
+        }
+
+        return found;
+      }
+
+      if (aNode.kind == "file" && typeof aNode.blob == "string") {
+        found.push(aNode.blob);
+      }
+
+      return found;
+    }
+
+    function read(aNode) {
+      if (aNode == null || aNode.kind != "file") {
+        return Promise.resolve("");
+      }
+
+      if (typeof aNode.body == "string") {
+        return Promise.resolve(aNode.body);
+      }
+
+      return window.vault.text(aNode.blob).catch(function () {
+        return "";
+      });
+    }
+
+    function write(aNode, body) {
+      if (aNode == null || aNode.kind != "file") {
+        return Promise.resolve(false);
+      }
+
+      if (typeof aNode.blob != "string") {
+        aNode.blob = window.vault.mint(aNode.name);
+      }
+
+      delete aNode.body;
+
+      aNode.size = sizeOf(body);
+      aNode.type = TEXT_TYPE;
+
+      return window.vault.put(aNode.blob, body).then(function () {
+        save();
+
+        return true;
+      }).catch(function () {
+        return false;
+      });
+    }
+
+    function absorb(host, aFile) {
+      var aNode = adoptFile(uniqueName(host, aFile.name), aFile);
+
+      return window.vault.put(aNode.blob, aFile).then(function () {
+        host.children.push(aNode);
+
+        return aNode;
+      });
+    }
+
+    function receive(host, list) {
+      var chain = Promise.resolve(null);
+      var landed = [];
+
+      for (var i = 0; i < list.length; i++) {
+        chain = chain.then((function (aFile) {
+          return function () {
+            return absorb(host, aFile).then(function (aNode) {
+              landed.push(aNode);
+            });
+          };
+        })(list[i]));
+      }
+
+      return chain.then(function () {
+        if (landed.length > 0) {
+          save();
+        }
+
+        return landed;
+      }).catch(function () {
+        return landed;
+      });
     }
 
     function isProtected(aNode) {
@@ -387,7 +510,58 @@
       return true;
     }
 
+    function strandedIn(aNode, found) {
+      if (aNode.kind == "folder") {
+        for (var i = 0; i < aNode.children.length; i++) {
+          strandedIn(aNode.children[i], found);
+        }
+
+        return found;
+      }
+
+      if (aNode.kind == "file" && typeof aNode.body == "string") {
+        found.push(aNode);
+      }
+
+      return found;
+    }
+
+    function rehouse() {
+      var stranded = strandedIn(root, []);
+
+      if (stranded.length == 0) {
+        return Promise.resolve(0);
+      }
+
+      var chain = Promise.resolve(null);
+
+      for (var i = 0; i < stranded.length; i++) {
+        chain = chain.then((function (aNode) {
+          return function () {
+            var body = aNode.body;
+
+            aNode.blob = window.vault.mint(aNode.name);
+            aNode.size = sizeOf(body);
+            aNode.type = TEXT_TYPE;
+
+            return window.vault.put(aNode.blob, body).then(function () {
+              delete aNode.body;
+            });
+          };
+        })(stranded[i]));
+      }
+
+      return chain.then(function () {
+        save();
+
+        return stranded.length;
+      }).catch(function () {
+        return 0;
+      });
+    }
+
     load();
+    rehouse();
 
     return {
       home: home,
@@ -395,6 +569,9 @@
       folder: makeFolder,
       file: makeFile,
       shortcut: makeShortcut,
+      read: read,
+      write: write,
+      receive: receive,
       childNamed: childNamed,
       uniqueName: uniqueName,
       parentOf: parentOf,
