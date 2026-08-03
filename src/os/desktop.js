@@ -1,6 +1,4 @@
 (function () {
-  var STORAGE_KEY = "noo-wari.desktop";
-
   var CELL_WIDTH = 88;
   var CELL_HEIGHT = 94;
   var ICON_SIZE = 44;
@@ -11,67 +9,68 @@
   var FOLDER_WIDTH = 440;
   var FOLDER_HEIGHT = 320;
   var ICON_PIXELS = 88;
+  var ICON_PATH = "icons/";
+  var STOCK_NAMES = ["terminal", "files", "config", "about"];
+  var LOGO_NAMES = ["about"];
+  var LOGO_INNER = 34;
+  var DRAG_THRESHOLD = 5;
 
-  function makeId() {
-    return "i" + Math.floor(Math.random() * 1000000000).toString(36) + Date.now().toString(36);
-  }
+  var stockArt = new Object();
+  var logoFrames = [];
 
-  function loadItems() {
-    try {
-      var raw = window.storage.get(STORAGE_KEY);
-
-      if (raw == null) {
-        return null;
+  function isLogoName(name) {
+    for (var i = 0; i < LOGO_NAMES.length; i++) {
+      if (LOGO_NAMES[i] == name) {
+        return true;
       }
+    }
 
-      var parsed = JSON.parse(raw);
+    return false;
+  }
 
-      if (parsed instanceof Array) {
-        return parsed;
+  function stockIcon(name) {
+    if (isLogoName(name)) {
+      return "";
+    }
+
+    for (var i = 0; i < STOCK_NAMES.length; i++) {
+      if (STOCK_NAMES[i] == name) {
+        return ICON_PATH + name + ".svg";
       }
-
-      return null;
-    } catch (error) {
-      return null;
     }
+
+    return "";
   }
 
-  function saveItems(items) {
-    try {
-      window.storage.set(STORAGE_KEY, JSON.stringify(items));
+  function releaseLogos() {
+    var kept = [];
 
-      return true;
-    } catch (error) {
-      return false;
+    for (var i = 0; i < logoFrames.length; i++) {
+      if (logoFrames[i].isConnected) {
+        kept.push(logoFrames[i]);
+      } else if (logoFrames[i].image != null) {
+        window.logo.forget(logoFrames[i].image);
+      }
     }
+
+    logoFrames = kept;
   }
 
-  function makeAppItem(name, x, y) {
-    var anItem = new Object();
+  function makeLogoArt() {
+    releaseLogos();
 
-    anItem.id = makeId();
-    anItem.kind = "app";
-    anItem.name = name;
-    anItem.app = name;
-    anItem.icon = "";
-    anItem.x = x;
-    anItem.y = y;
+    var anArt = makeChip();
+    var aFrame = window.logo.mark(LOGO_INNER);
 
-    return anItem;
-  }
+    if (aFrame.image == null) {
+      aFrame.style.backgroundColor = "transparent";
+    }
 
-  function makeFolderItem(name, x, y) {
-    var anItem = new Object();
+    anArt.appendChild(aFrame);
 
-    anItem.id = makeId();
-    anItem.kind = "folder";
-    anItem.name = name;
-    anItem.items = [];
-    anItem.icon = "";
-    anItem.x = x;
-    anItem.y = y;
+    logoFrames.push(aFrame);
 
-    return anItem;
+    return anArt;
   }
 
   function makeFolderArt() {
@@ -108,13 +107,9 @@
     return anArt;
   }
 
-  function makeAppArt(name) {
+  function makeChip() {
     var anArt = document.createElement("div");
     var artStyle = anArt.style;
-
-    var letter = name.charAt(0).toUpperCase();
-
-    anArt.textContent = letter;
 
     artStyle.width = ICON_SIZE + "px";
     artStyle.height = ICON_SIZE + "px";
@@ -129,6 +124,41 @@
     artStyle.backgroundColor = "var(--nw-secondary)";
     artStyle.color = "var(--nw-accent)";
     artStyle.fontSize = "20px";
+
+    return anArt;
+  }
+
+  function makeAppArt(name) {
+    var anArt = makeChip();
+
+    anArt.textContent = name.charAt(0).toUpperCase();
+
+    return anArt;
+  }
+
+  function makeStockArt(name) {
+    var anArt = makeChip();
+    var src = stockIcon(name);
+
+    if (stockArt[src] != null) {
+      anArt.innerHTML = stockArt[src];
+
+      return anArt;
+    }
+
+    fetch(src).then(function (response) {
+      if (!response.ok) {
+        throw new Error("missing");
+      }
+
+      return response.text();
+    }).then(function (markup) {
+      stockArt[src] = markup;
+
+      anArt.innerHTML = markup;
+    }).catch(function () {
+      anArt.textContent = name.charAt(0).toUpperCase();
+    });
 
     return anArt;
   }
@@ -204,6 +234,14 @@
       return makeFolderArt();
     }
 
+    if (isLogoName(anItem.name)) {
+      return makeLogoArt();
+    }
+
+    if (stockIcon(anItem.name) != "") {
+      return makeStockArt(anItem.name);
+    }
+
     return makeAppArt(anItem.name);
   }
 
@@ -250,9 +288,16 @@
       entryStyle.color = "var(--nw-text)";
     }
 
+    function onDown(event) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      onPick(event);
+    }
+
     anEntry.addEventListener("mouseenter", onEnter);
     anEntry.addEventListener("mouseleave", onLeave);
-    anEntry.addEventListener("mousedown", onPick);
+    anEntry.addEventListener("mousedown", onDown);
 
     return anEntry;
   }
@@ -261,22 +306,36 @@
     var layer = document.createElement("div");
     var aMenu = makeMenu();
 
-    var items = null;
-    var selectedId = "";
+    var selectedNode = null;
     var folders = new Object();
 
     var dragItem = null;
     var dragElement = null;
     var dragOffsetX = 0;
     var dragOffsetY = 0;
-    var didMove = false;
+    var pendingItem = null;
+    var pendingX = 0;
+    var pendingY = 0;
 
-    function appNames() {
-      var found = [];
+    function isRegistered(name) {
       var apps = window.launcher.list();
 
       for (var i = 0; i < apps.length; i++) {
-        found.push(apps[i].name);
+        if (apps[i].name == name) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function seedNames() {
+      var found = [];
+
+      for (var i = 0; i < STOCK_NAMES.length; i++) {
+        if (isRegistered(STOCK_NAMES[i])) {
+          found.push(STOCK_NAMES[i]);
+        }
       }
 
       return found;
@@ -288,25 +347,40 @@
       return Math.max(1, Math.floor(usable / CELL_HEIGHT) + 1);
     }
 
-    function defaults() {
-      var names = appNames();
-      var made = [];
+    function seed() {
+      var names = seedNames();
+      var host = desktopFolder();
       var rows = columns();
 
-      for (var i = 0; i < names.length; i++) {
-        made.push(makeAppItem(names[i], Math.floor(i / rows), i % rows));
-      }
+      host.children = [];
 
-      return made;
+      for (var i = 0; i < names.length; i++) {
+        var aNode = window.filesystem.shortcut(names[i], names[i]);
+
+        aNode.x = Math.floor(i / rows);
+        aNode.y = i % rows;
+
+        host.children.push(aNode);
+      }
+    }
+
+    function desktopFolder() {
+      return window.filesystem.desktop();
+    }
+
+    function itemList() {
+      return desktopFolder().children;
     }
 
     function persist() {
-      saveItems(items);
+      window.filesystem.save();
     }
 
-    function findItem(id) {
+    function findItem(name) {
+      var items = itemList();
+
       for (var i = 0; i < items.length; i++) {
-        if (items[i].id == id) {
+        if (items[i].name == name) {
           return items[i];
         }
       }
@@ -314,21 +388,15 @@
       return null;
     }
 
-    function removeItem(id) {
-      for (var i = 0; i < items.length; i++) {
-        if (items[i].id == id) {
-          items.splice(i, 1);
-
-          return true;
-        }
-      }
-
-      return false;
+    function removeItem(aNode) {
+      return window.filesystem.remove(desktopFolder(), aNode);
     }
 
-    function itemAtCell(x, y, exceptId) {
+    function itemAtCell(x, y, except) {
+      var items = itemList();
+
       for (var i = 0; i < items.length; i++) {
-        if (items[i].x == x && items[i].y == y && items[i].id != exceptId) {
+        if (items[i].x == x && items[i].y == y && items[i] != except) {
           return items[i];
         }
       }
@@ -341,7 +409,7 @@
 
       for (var x = 0; x < 40; x++) {
         for (var y = 0; y < rows; y++) {
-          if (itemAtCell(x, y, "") == null) {
+          if (itemAtCell(x, y, null) == null) {
             return { x: x, y: y };
           }
         }
@@ -350,9 +418,47 @@
       return { x: 0, y: 0 };
     }
 
+    function pathOf(aNode) {
+      var root = window.filesystem.home();
+      var names = [];
+      var node = aNode;
+
+      while (node != root) {
+        var host = window.filesystem.parentOf(root, node);
+
+        if (host == null) {
+          return null;
+        }
+
+        names.unshift(node.name);
+
+        node = host;
+      }
+
+      return names;
+    }
+
+    function browse(anItem) {
+      var path = pathOf(anItem);
+
+      if (path == null || typeof window.files == "undefined") {
+        openFolder(anItem);
+
+        return;
+      }
+
+      window.files.at(path);
+    }
+
     function launch(anItem) {
       if (anItem.kind == "folder") {
-        openFolder(anItem);
+        browse(anItem);
+
+        return;
+      }
+
+      if (anItem.kind == "file") {
+        openEditor(anItem);
 
         return;
       }
@@ -368,8 +474,51 @@
       }
     }
 
+    function openEditor(anItem) {
+      var aWindow = window.makeWindow(FOLDER_WIDTH, FOLDER_HEIGHT);
+      var label = document.createElement("span");
+      var editor = document.createElement("textarea");
+
+      label.textContent = anItem.name;
+      label.style.marginLeft = "4px";
+      label.style.color = "var(--nw-text)";
+      label.style.fontFamily = window.ui.FONT_FAMILY;
+      label.style.fontSize = "12px";
+      label.style.pointerEvents = "none";
+
+      aWindow.titleBar.appendChild(label);
+
+      editor.value = anItem.body;
+      editor.spellcheck = false;
+
+      editor.style.width = "100%";
+      editor.style.height = "100%";
+      editor.style.boxSizing = "border-box";
+      editor.style.padding = "10px";
+      editor.style.resize = "none";
+      editor.style.backgroundColor = "var(--nw-deep)";
+      editor.style.borderStyle = "none";
+      editor.style.outlineStyle = "none";
+      editor.style.color = "var(--nw-text)";
+      editor.style.fontFamily = window.ui.FONT_FAMILY;
+      editor.style.fontSize = "12px";
+      editor.style.lineHeight = "1.6";
+
+      function onInput() {
+        anItem.body = editor.value;
+
+        persist();
+      }
+
+      editor.addEventListener("input", onInput);
+
+      aWindow.content.appendChild(editor);
+
+      return aWindow;
+    }
+
     function openFolder(anItem) {
-      var existing = folders[anItem.id];
+      var existing = folders[anItem.name];
 
       if (typeof existing != "undefined" && existing.content != null) {
         window.desktops.move(existing, window.desktops.current());
@@ -403,7 +552,7 @@
 
       aWindow.content.appendChild(tray);
 
-      folders[anItem.id] = aWindow;
+      folders[anItem.name] = aWindow;
 
       paintFolder(anItem, tray);
 
@@ -416,7 +565,7 @@
     function paintFolder(anItem, tray) {
       window.ui.clear(tray);
 
-      if (anItem.items.length == 0) {
+      if (anItem.children.length == 0) {
         var empty = window.ui.label("drag icons here");
 
         empty.style.padding = "6px";
@@ -426,13 +575,13 @@
         return;
       }
 
-      for (var i = 0; i < anItem.items.length; i++) {
-        tray.appendChild(makeTile(anItem.items[i], anItem));
+      for (var i = 0; i < anItem.children.length; i++) {
+        tray.appendChild(makeTile(anItem.children[i], anItem));
       }
     }
 
     function refreshFolder(anItem) {
-      var aWindow = folders[anItem.id];
+      var aWindow = folders[anItem.name];
 
       if (typeof aWindow == "undefined" || aWindow.content == null) {
         return;
@@ -473,6 +622,10 @@
         launch(anItem);
       }
 
+      if (anItem.kind == "file") {
+        aTile.title = anItem.name;
+      }
+
       function onMenu(event) {
         event.preventDefault();
         event.stopPropagation();
@@ -497,7 +650,7 @@
       tileStyle.left = LEFT_MARGIN + anItem.x * CELL_WIDTH + "px";
       tileStyle.top = TOP_MARGIN + anItem.y * CELL_HEIGHT + "px";
 
-      if (anItem.id == selectedId) {
+      if (anItem == selectedNode) {
         tileStyle.backgroundColor = "var(--nw-active)";
       }
 
@@ -506,13 +659,12 @@
           return;
         }
 
+        closeRename();
+
         event.preventDefault();
 
-        selectedId = anItem.id;
-
-        paint();
-
-        beginDrag(anItem, event);
+        select(anItem);
+        armDrag(anItem, event);
       }
 
       aTile.addEventListener("mousedown", onDown);
@@ -520,9 +672,64 @@
       return aTile;
     }
 
+    function closeRename() {
+      var active = document.activeElement;
+
+      if (active != null && active.nodeName == "INPUT" && layer.contains(active)) {
+        active.blur();
+      }
+    }
+
+    function select(aNode) {
+      selectedNode = aNode;
+
+      paintSelection();
+    }
+
+    function paintSelection() {
+      for (var i = 0; i < layer.childNodes.length; i++) {
+        var aTile = layer.childNodes[i];
+
+        if (aTile.item == selectedNode) {
+          aTile.style.backgroundColor = "var(--nw-active)";
+        } else {
+          aTile.style.backgroundColor = "";
+        }
+      }
+    }
+
+    function armDrag(anItem, event) {
+      pendingItem = anItem;
+      pendingX = event.clientX;
+      pendingY = event.clientY;
+
+      document.addEventListener("mousemove", watchDrag);
+      document.addEventListener("mouseup", endDrag);
+    }
+
+    function watchDrag(event) {
+      if (dragElement == null) {
+        if (pendingItem == null) {
+          return;
+        }
+
+        if (
+          Math.abs(event.clientX - pendingX) < DRAG_THRESHOLD &&
+          Math.abs(event.clientY - pendingY) < DRAG_THRESHOLD
+        ) {
+          return;
+        }
+
+        beginDrag(pendingItem, event);
+
+        return;
+      }
+
+      moveDrag(event);
+    }
+
     function beginDrag(anItem, event) {
       dragItem = anItem;
-      didMove = false;
 
       dragElement = document.createElement("div");
 
@@ -539,9 +746,6 @@
       moveDrag(event);
 
       document.body.appendChild(dragElement);
-
-      document.addEventListener("mousemove", moveDrag);
-      document.addEventListener("mouseup", endDrag);
     }
 
     function moveDrag(event) {
@@ -549,15 +753,15 @@
         return;
       }
 
-      didMove = true;
-
       dragElement.style.left = event.clientX - dragOffsetX + "px";
       dragElement.style.top = event.clientY - dragOffsetY + "px";
     }
 
     function endDrag(event) {
-      document.removeEventListener("mousemove", moveDrag);
+      document.removeEventListener("mousemove", watchDrag);
       document.removeEventListener("mouseup", endDrag);
+
+      pendingItem = null;
 
       if (dragElement != null) {
         dragElement.remove();
@@ -573,7 +777,13 @@
 
       dragItem = null;
 
-      if (!didMove) {
+      var over = document.elementFromPoint(event.clientX, event.clientY);
+
+      if (window.filesystem.isStarZone(over)) {
+        if (anItem.kind == "folder") {
+          window.filesystem.star(["desktop", anItem.name]);
+        }
+
         return;
       }
 
@@ -588,12 +798,12 @@
         y = 0;
       }
 
-      var target = itemAtCell(x, y, anItem.id);
+      var target = itemAtCell(x, y, anItem);
 
       if (target != null && target.kind == "folder" && anItem.kind != "folder") {
-        removeItem(anItem.id);
+        removeItem(anItem);
 
-        target.items.push(anItem);
+        target.children.push(anItem);
 
         refreshFolder(target);
       } else if (target == null) {
@@ -749,7 +959,7 @@
           }
         },
         {
-          label: "reset to apps",
+          label: "reset icons",
           run: function () {
             hideMenu();
             reset();
@@ -760,13 +970,9 @@
 
     function discard(anItem, parent) {
       if (parent == null) {
-        removeItem(anItem.id);
+        removeItem(anItem);
       } else {
-        for (var i = 0; i < parent.items.length; i++) {
-          if (parent.items[i].id == anItem.id) {
-            parent.items.splice(i, 1);
-          }
-        }
+        window.filesystem.remove(parent, anItem);
 
         refreshFolder(parent);
       }
@@ -805,7 +1011,7 @@
       function commit() {
         var text = anInput.value.trim();
 
-        if (text != "") {
+        if (text != "" && !window.filesystem.isProtected(anItem)) {
           anItem.name = text;
         }
 
@@ -842,15 +1048,19 @@
 
       tile.replaceChild(anInput, tile.label);
 
-      anInput.focus();
-      anInput.select();
+      function grab() {
+        anInput.focus();
+        anInput.select();
+      }
+
+      setTimeout(grab, 0);
     }
 
     function tileOf(anItem, parent) {
       var host = layer;
 
       if (parent != null) {
-        var aWindow = folders[parent.id];
+        var aWindow = folders[parent.name];
 
         if (typeof aWindow == "undefined" || aWindow.content == null) {
           return null;
@@ -870,9 +1080,13 @@
 
     function addFolder(name) {
       var spot = freeCell();
-      var anItem = makeFolderItem(name, spot.x, spot.y);
+      var host = desktopFolder();
+      var anItem = window.filesystem.folder(window.filesystem.uniqueName(host, name));
 
-      items.push(anItem);
+      anItem.x = spot.x;
+      anItem.y = spot.y;
+
+      host.children.push(anItem);
 
       persist();
       paint();
@@ -882,9 +1096,13 @@
 
     function addApp(name) {
       var spot = freeCell();
-      var anItem = makeAppItem(name, spot.x, spot.y);
+      var host = desktopFolder();
+      var anItem = window.filesystem.shortcut(window.filesystem.uniqueName(host, name), name);
 
-      items.push(anItem);
+      anItem.x = spot.x;
+      anItem.y = spot.y;
+
+      host.children.push(anItem);
 
       persist();
       paint();
@@ -892,8 +1110,8 @@
       return anItem;
     }
 
-    function setPicture(id, src) {
-      var anItem = findItem(id);
+    function setPicture(name, src) {
+      var anItem = findItem(name);
 
       if (anItem == null) {
         return false;
@@ -906,6 +1124,7 @@
 
     function tidy() {
       var rows = columns();
+      var items = itemList();
 
       for (var i = 0; i < items.length; i++) {
         items[i].x = Math.floor(i / rows);
@@ -917,14 +1136,17 @@
     }
 
     function reset() {
-      items = defaults();
-      selectedId = "";
+      seed();
+
+      selectedNode = null;
 
       persist();
       paint();
     }
 
     function paint() {
+      var items = itemList();
+
       window.ui.clear(layer);
 
       for (var i = 0; i < items.length; i++) {
@@ -937,10 +1159,8 @@
         return;
       }
 
-      selectedId = "";
-
       hideMenu();
-      paint();
+      select(null);
     }
 
     function onLayerMenu(event) {
@@ -992,20 +1212,22 @@
 
     document.body.appendChild(aMenu);
 
-    items = loadItems();
+    if (window.filesystem.fresh()) {
+      seed();
 
-    if (items == null) {
-      items = defaults();
+      window.filesystem.settle();
 
       persist();
     }
+
+    window.filesystem.watch(paint);
 
     paint();
 
     return {
       element: layer,
       list: function () {
-        return items.slice(0);
+        return itemList().slice(0);
       },
       addApp: addApp,
       addFolder: addFolder,

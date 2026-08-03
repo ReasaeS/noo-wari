@@ -47,6 +47,7 @@ my $SEND_STALL_TIMEOUT = 30;
 
 my $HOT_RELOAD         = 1;
 my $HOT_RELOAD_PATH    = '/__hotreload';
+my $FILE_INDEX_PATH    = '/__files';
 my $HOT_RELOAD_POLL_MS = 1000;
 my $HOT_RELOAD_MODE    = 'poll';          # 'poll' (client polls) or 'push' (server pushes over a WebSocket)
 
@@ -888,6 +889,11 @@ sub handle_client {
             $poll_count++;
             send_response($client, 200, "OK", "text/plain", web_root_signature(), $client_ip, $path, quiet => 1);
             request_redraw();
+            return;
+        }
+
+        if ($path =~ m{^\Q$FILE_INDEX_PATH\E(?:[?#]|$)}) {
+            send_response($client, 200, "OK", "application/json", file_index_json(), $client_ip, $path, quiet => 1);
             return;
         }
 
@@ -2327,6 +2333,58 @@ sub write_all {
     }
 
     return $offset == $length ? 1 : 0;
+}
+
+sub json_escape {
+    my ($text) = @_;
+
+    $text = '' unless defined $text;
+    $text =~ s/\\/\\\\/g;
+    $text =~ s/"/\\"/g;
+    $text =~ s/([\x00-\x1f])/sprintf('\\u%04x', ord($1))/ge;
+
+    return $text;
+}
+
+sub file_index_json {
+    my @entries;
+    my @stack = ($REAL_WEB_ROOT);
+
+    while (@stack) {
+        my $dir = pop @stack;
+
+        opendir(my $dh, $dir) or next;
+        my @names = sort readdir($dh);
+        closedir($dh);
+
+        for my $name (@names) {
+            next if $name eq '.' || $name eq '..';
+            next if $name =~ /^\./;
+
+            my $full = File::Spec->catfile($dir, $name);
+
+            next unless path_within_root($full);
+
+            if (-d $full) {
+                push @stack, $full;
+                next;
+            }
+
+            next unless -f $full && -r _;
+
+            my $relative = substr($full, length($REAL_WEB_ROOT));
+            $relative =~ s{^/+}{};
+
+            my $size = -s $full;
+            $size = 0 unless defined $size;
+
+            push @entries, sprintf('{"path":"%s","size":%d}', json_escape($relative), $size);
+        }
+    }
+
+    @entries = sort @entries;
+
+    return '[' . join(',', @entries) . ']';
 }
 
 sub is_app_route {
