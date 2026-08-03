@@ -2,6 +2,8 @@
   var GLYPHS = "アイウエオカキクケコサシスセソタチツテトナニヌネノ0123456789";
   var PALETTES = ["green", "amber", "ice", "magenta"];
 
+  var BACKGROUND_COLOR = "#0b0f14";
+
   var HUES = {
     green: 145,
     amber: 40,
@@ -24,13 +26,20 @@
     var frameTimer = 0;
     var lastDraw = 0;
 
+    function pick() {
+      return GLYPHS.charAt(Math.floor(Math.random() * GLYPHS.length));
+    }
+
     function reset() {
       var count = Math.ceil(canvas.width / fontSize);
 
       columns = [];
 
       for (var i = 0; i < count; i++) {
-        columns.push(Math.floor((Math.random() * canvas.height) / fontSize));
+        columns.push({
+          row: Math.floor((Math.random() * canvas.height) / fontSize),
+          glyph: ""
+        });
       }
     }
 
@@ -38,7 +47,7 @@
       canvas.width = Math.max(stage.clientWidth - 20, 120);
       canvas.height = Math.max(stage.clientHeight - 20, 120);
 
-      context.fillStyle = "#0b0f14";
+      context.fillStyle = BACKGROUND_COLOR;
       context.fillRect(0, 0, canvas.width, canvas.height);
 
       reset();
@@ -61,21 +70,29 @@
       var hue = HUES[palette];
 
       for (var i = 0; i < columns.length; i++) {
-        var glyph = GLYPHS.charAt(Math.floor(Math.random() * GLYPHS.length));
+        var column = columns[i];
         var x = i * fontSize;
-        var y = columns[i] * fontSize;
+
+        if (column.glyph != "") {
+          var wasY = column.row * fontSize;
+
+          context.fillStyle = BACKGROUND_COLOR;
+          context.fillRect(x, wasY - fontSize, fontSize, fontSize);
+
+          context.fillStyle = "hsl(" + hue + ", 60%, 48%)";
+          context.fillText(column.glyph, x, wasY);
+        }
+
+        if (column.row * fontSize > canvas.height && Math.random() > 0.975) {
+          column.row = 0;
+        } else {
+          column.row = column.row + 1;
+        }
+
+        column.glyph = pick();
 
         context.fillStyle = "hsl(" + hue + ", 70%, 82%)";
-        context.fillText(glyph, x, y);
-
-        context.fillStyle = "hsl(" + hue + ", 60%, 48%)";
-        context.fillText(glyph, x, y - fontSize);
-
-        if (y > canvas.height && Math.random() > 0.975) {
-          columns[i] = 0;
-        } else {
-          columns[i] = columns[i] + 1;
-        }
+        context.fillText(column.glyph, x, column.row * fontSize);
       }
     }
 

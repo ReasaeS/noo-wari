@@ -202,6 +202,8 @@
       } else {
         window.topbar.show();
       }
+
+      window.desktops.refit();
     }
 
     function readFullscreen() {

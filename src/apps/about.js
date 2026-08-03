@@ -5,14 +5,53 @@
     role: "author of noo-wari",
     location: "England, United Kingdom",
     blurb:
-      "noo-wari is a desktop shell that runs in the browser. windows, desktops, " +
-      "a command palette, a file system in local storage and a pile of small apps. "
+      "noo-wari is a desktop shell that runs in the browser. It has windows, desktops, " +
+      "a command palette, a file system and more apps than anyone will ever use. \n\n" +
+      "But most importantly, it has my soul."
   };
 
   var CONTACT = [
     { label: "email", value: "reasae.nostos@proton.me", href: "mailto:reasae.nostos@proton.me" },
     { label: "github", value: "github.com/ReasaeS", href: "https://github.com/ReasaeS" }
   ];
+
+  var PORTRAIT = "icons/reasae.png";
+  var PORTRAIT_SIZE = 56;
+
+  function makePortrait() {
+    var aFrame = document.createElement("div");
+    var anImage = document.createElement("img");
+
+    aFrame.style.width = PORTRAIT_SIZE + "px";
+    aFrame.style.height = PORTRAIT_SIZE + "px";
+    aFrame.style.flexShrink = 0;
+    aFrame.style.borderRadius = "50%";
+    aFrame.style.overflow = "hidden";
+    aFrame.style.display = "flex";
+    aFrame.style.alignItems = "center";
+    aFrame.style.justifyContent = "center";
+    aFrame.style.backgroundColor = "var(--nw-logoField)";
+
+    anImage.src = PORTRAIT;
+    anImage.alt = PROFILE.name;
+    anImage.draggable = false;
+
+    anImage.style.width = "100%";
+    anImage.style.height = "100%";
+    anImage.style.objectFit = "cover";
+    anImage.style.display = "block";
+
+    function onError() {
+      aFrame.removeChild(anImage);
+      aFrame.appendChild(window.logo.mark(PORTRAIT_SIZE));
+    }
+
+    anImage.addEventListener("error", onError);
+
+    aFrame.appendChild(anImage);
+
+    return aFrame;
+  }
 
   function makeHeading(text) {
     var aHeading = document.createElement("div");
@@ -70,7 +109,7 @@
     aColumn.appendChild(aRole);
     aColumn.appendChild(aPlace);
 
-    aHeader.appendChild(window.logo.mark(56));
+    aHeader.appendChild(makePortrait());
     aHeader.appendChild(aColumn);
 
     return aHeader;

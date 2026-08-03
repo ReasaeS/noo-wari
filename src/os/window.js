@@ -17,6 +17,9 @@
 
   var WINDOW_Z_BASE = 1;
 
+  var SNAP_EDGE = 26;
+  var GHOST_Z_INDEX = 900;
+
   var HUE_START = 145;
   var HUE_STEP = 137.508;
   var HUE_SATURATION = 45;
@@ -278,7 +281,127 @@
     return aContent;
   }
 
-  function makeDraggable(aWindow, windowStyler, aHandle, onDragStart) {
+  function barHeight() {
+    if (typeof window.topbar == "undefined" || window.topbar == null) {
+      return 0;
+    }
+
+    if (window.topbar.element == null) {
+      return 0;
+    }
+
+    if (window.topbar.element.style.display == "none") {
+      return 0;
+    }
+
+    return window.topbar.height();
+  }
+
+  function workArea() {
+    var top = barHeight();
+
+    return {
+      left: 0,
+      top: top,
+      width: window.innerWidth,
+      height: window.innerHeight - top
+    };
+  }
+
+  function sideAt(x, y) {
+    var area = workArea();
+
+    if (x <= area.left + SNAP_EDGE) {
+      return "left";
+    }
+
+    if (x >= area.left + area.width - SNAP_EDGE) {
+      return "right";
+    }
+
+    if (y <= area.top + SNAP_EDGE) {
+      return "top";
+    }
+
+    if (y >= area.top + area.height - SNAP_EDGE) {
+      return "bottom";
+    }
+
+    return "";
+  }
+
+  function snapBox(side) {
+    var area = workArea();
+
+    var wide = area.width;
+    var tall = area.height;
+    var left = area.left;
+    var top = area.top;
+
+    if (side == "left") {
+      return { width: wide / 2, height: tall, left: left + wide / 4, top: top + tall / 2 };
+    }
+
+    if (side == "right") {
+      return { width: wide / 2, height: tall, left: left + wide * 0.75, top: top + tall / 2 };
+    }
+
+    if (side == "top") {
+      return { width: wide, height: tall, left: left + wide / 2, top: top + tall / 2 };
+    }
+
+    if (side == "bottom") {
+      return { width: wide, height: tall / 2, left: left + wide / 2, top: top + tall * 0.75 };
+    }
+
+    return null;
+  }
+
+  var ghost = null;
+
+  function showGhost(side) {
+    var box = snapBox(side);
+
+    if (box == null) {
+      hideGhost();
+
+      return;
+    }
+
+    if (ghost == null) {
+      ghost = document.createElement("div");
+
+      var ghostStyle = ghost.style;
+
+      ghostStyle.position = "fixed";
+      ghostStyle.boxSizing = "border-box";
+      ghostStyle.pointerEvents = "none";
+      ghostStyle.borderStyle = "solid";
+      ghostStyle.borderWidth = "2px";
+      ghostStyle.borderColor = "var(--nw-accent)";
+      ghostStyle.borderRadius = "5px";
+      ghostStyle.backgroundColor = "var(--nw-active)";
+      ghostStyle.zIndex = GHOST_Z_INDEX;
+
+      document.body.appendChild(ghost);
+    }
+
+    ghost.style.display = "block";
+    ghost.style.width = box.width + "px";
+    ghost.style.height = box.height + "px";
+    ghost.style.left = box.left - box.width / 2 + "px";
+    ghost.style.top = box.top - box.height / 2 + "px";
+  }
+
+  function hideGhost() {
+    if (ghost == null) {
+      return;
+    }
+
+    ghost.style.display = "none";
+  }
+
+  function makeDraggable(aWindow, windowStyler, aHandle, onDragStart, onDragEnd) {
     function startDrag(event) {
       if (event.target != aHandle) {
         return;
@@ -296,11 +419,17 @@
       function onMove(moveEvent) {
         windowStyler.setProp("left", startLeft + (moveEvent.clientX - startX), "px");
         windowStyler.setProp("top", startTop + (moveEvent.clientY - startY), "px");
+
+        showGhost(sideAt(moveEvent.clientX, moveEvent.clientY));
       }
 
-      function onUp() {
+      function onUp(upEvent) {
         document.removeEventListener("mousemove", onMove);
         document.removeEventListener("mouseup", onUp);
+
+        hideGhost();
+
+        onDragEnd(sideAt(upEvent.clientX, upEvent.clientY));
       }
 
       onDragStart();
@@ -448,6 +577,7 @@
     var isClosed = false;
     var isMinimized = false;
     var isMaximized = false;
+    var snapSide = "";
     var savedDisplay = "block";
     var savedSize = new Object();
 
@@ -540,6 +670,35 @@
       isMinimized = true;
     }
 
+    function remember() {
+      savedSize.width = styler.getProp("width");
+      savedSize.widthUnit = styler.getUnit("width");
+      savedSize.height = styler.getProp("height");
+      savedSize.heightUnit = styler.getUnit("height");
+      savedSize.left = styler.getProp("left");
+      savedSize.leftUnit = styler.getUnit("left");
+      savedSize.top = styler.getProp("top");
+      savedSize.topUnit = styler.getUnit("top");
+    }
+
+    function applyBox(box) {
+      setProp("width", box.width, "px");
+      setProp("height", box.height, "px");
+      setProp("left", box.left, "px");
+      setProp("top", box.top, "px");
+    }
+
+    function fullBox() {
+      var area = workArea();
+
+      return {
+        width: area.width,
+        height: area.height,
+        left: area.left + area.width / 2,
+        top: area.top + area.height / 2
+      };
+    }
+
     function maximize() {
       if (isClosed) {
         return;
@@ -556,24 +715,65 @@
         setProp("top", savedSize.top, savedSize.topUnit);
 
         isMaximized = false;
+        snapSide = "";
+
         return;
       }
 
-      savedSize.width = styler.getProp("width");
-      savedSize.widthUnit = styler.getUnit("width");
-      savedSize.height = styler.getProp("height");
-      savedSize.heightUnit = styler.getUnit("height");
-      savedSize.left = styler.getProp("left");
-      savedSize.leftUnit = styler.getUnit("left");
-      savedSize.top = styler.getProp("top");
-      savedSize.topUnit = styler.getUnit("top");
-
-      setProp("width", window.innerWidth, "px");
-      setProp("height", window.innerHeight, "px");
-      setProp("left", 50, "%");
-      setProp("top", 50, "%");
+      remember();
+      applyBox(fullBox());
 
       isMaximized = true;
+      snapSide = "full";
+    }
+
+    function snap(side) {
+      if (isClosed) {
+        return false;
+      }
+
+      var box = snapBox(side);
+
+      if (box == null) {
+        return false;
+      }
+
+      if (isMinimized) {
+        minimize();
+      }
+
+      if (!isMaximized) {
+        remember();
+      }
+
+      applyBox(box);
+
+      isMaximized = true;
+      snapSide = side;
+
+      return true;
+    }
+
+    function refit() {
+      if (isClosed || snapSide == "") {
+        return false;
+      }
+
+      if (snapSide == "full") {
+        applyBox(fullBox());
+
+        return true;
+      }
+
+      var box = snapBox(snapSide);
+
+      if (box == null) {
+        return false;
+      }
+
+      applyBox(box);
+
+      return true;
     }
 
     var titleBar = makeTitleBar();
@@ -601,9 +801,18 @@
 
     function unmaximize() {
       isMaximized = false;
+      snapSide = "";
     }
 
-    makeDraggable(aWindow, styler, titleBar, unmaximize);
+    function onDropped(side) {
+      if (side == "") {
+        return;
+      }
+
+      snap(side);
+    }
+
+    makeDraggable(aWindow, styler, titleBar, unmaximize, onDropped);
 
     for (var i = 0; i < EDGES.length; i++) {
       aWindow.appendChild(makeResizer(aWindow, styler, EDGES[i], unmaximize));
@@ -614,6 +823,8 @@
     aWindow.close = close;
     aWindow.minimize = minimize;
     aWindow.maximize = maximize;
+    aWindow.snap = snap;
+    aWindow.refit = refit;
     aWindow.present = present;
     aWindow.setStack = setStack;
     aWindow.paintFocus = paintFocus;
@@ -638,8 +849,79 @@
 
   makeThemeStyle();
 
+  function sideForKey(key) {
+    if (key == "ArrowLeft") {
+      return "left";
+    }
+
+    if (key == "ArrowRight") {
+      return "right";
+    }
+
+    if (key == "ArrowUp") {
+      return "top";
+    }
+
+    if (key == "ArrowDown") {
+      return "bottom";
+    }
+
+    return "";
+  }
+
+  function isTyping(anElement) {
+    if (anElement == null) {
+      return false;
+    }
+
+    var name = anElement.nodeName;
+
+    if (name == "INPUT" || name == "TEXTAREA" || name == "SELECT") {
+      return true;
+    }
+
+    return anElement.isContentEditable == true;
+  }
+
+  function onSnapKey(event) {
+    if (!event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+      return;
+    }
+
+    var side = sideForKey(event.key);
+
+    if (side == "" || isTyping(event.target)) {
+      return;
+    }
+
+    var aWindow = currentWindow();
+
+    if (aWindow == null || typeof aWindow.snap != "function") {
+      return;
+    }
+
+    if (aWindow.snap(side)) {
+      event.preventDefault();
+    }
+  }
+
+  function refitAll() {
+    for (var i = 0; i < windows.length; i++) {
+      if (typeof windows[i].refit == "function") {
+        windows[i].refit();
+      }
+    }
+
+    return true;
+  }
+
+  document.addEventListener("keydown", onSnapKey);
+
+  window.addEventListener("resize", refitAll);
+
   window.makeWindow = makeWindow;
   window.desktops = {
+    refit: refitAll,
     select: selectDesktop,
     current: currentDesktop,
     windows: listWindows,
