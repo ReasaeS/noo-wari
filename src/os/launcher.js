@@ -224,6 +224,7 @@
     promptStyle.fontSize = "14px";
     promptStyle.marginRight = "10px";
     promptStyle.userSelect = "none";
+    promptStyle.transition = "color 120ms ease";
 
     return aPrompt;
   }
@@ -489,12 +490,22 @@
       paint();
     }
 
+    function isBack() {
+      return path != "" && anInput.value.trim() == "";
+    }
+
     function paintPrompt() {
-      if (path == "" || anInput.value.trim() != "") {
-        aPrompt.textContent = "❯";
+      if (isBack()) {
+        aPrompt.textContent = "‹ " + path + " ❯";
+        aPrompt.title = "back to categories";
+        aPrompt.style.cursor = "pointer";
       } else {
-        aPrompt.textContent = path + " ❯";
+        aPrompt.textContent = "❯";
+        aPrompt.title = "";
+        aPrompt.style.cursor = "default";
       }
+
+      aPrompt.style.color = ACCENT_COLOR;
     }
 
     function ascend() {
@@ -644,6 +655,30 @@
       }
     }
 
+    function onPromptDown(event) {
+      if (!isBack()) {
+        return;
+      }
+
+      event.preventDefault();
+
+      ascend();
+
+      anInput.focus();
+    }
+
+    function onPromptEnter() {
+      if (!isBack()) {
+        return;
+      }
+
+      aPrompt.style.color = TEXT_COLOR;
+    }
+
+    function onPromptLeave() {
+      aPrompt.style.color = ACCENT_COLOR;
+    }
+
     function onOverlayDown(event) {
       if (event.target == anOverlay) {
         close();
@@ -661,6 +696,9 @@
     anOverlay.appendChild(aPanel);
 
     anInput.addEventListener("input", refresh);
+    aPrompt.addEventListener("mousedown", onPromptDown);
+    aPrompt.addEventListener("mouseenter", onPromptEnter);
+    aPrompt.addEventListener("mouseleave", onPromptLeave);
     anOverlay.addEventListener("mousedown", onOverlayDown);
 
     document.addEventListener("keydown", onKeyDown);

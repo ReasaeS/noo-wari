@@ -180,13 +180,17 @@
       var sizeElement = document.createElement("span");
 
       nameElement.textContent = entry.node.name;
+      nameElement.style.minWidth = "0px";
       nameElement.style.overflow = "hidden";
       nameElement.style.textOverflow = "ellipsis";
       nameElement.style.whiteSpace = "nowrap";
 
       sizeElement.textContent = entry.where + "  ·  " + formatBytes(entry.node.size);
       sizeElement.style.marginLeft = "14px";
-      sizeElement.style.flexShrink = 0;
+      sizeElement.style.minWidth = "0px";
+      sizeElement.style.overflow = "hidden";
+      sizeElement.style.textOverflow = "ellipsis";
+      sizeElement.style.whiteSpace = "nowrap";
       sizeElement.style.fontSize = "11px";
       sizeElement.style.color = ui.MUTED_COLOR;
 
@@ -476,6 +480,14 @@
       element.volume = volume / 100;
     }
 
+    toolbar.style.flexWrap = "wrap";
+
+    titleValue.style.flexShrink = 1;
+    titleValue.style.minWidth = "0px";
+    titleValue.style.overflow = "hidden";
+    titleValue.style.textOverflow = "ellipsis";
+    titleValue.style.whiteSpace = "nowrap";
+
     clockElement.textContent = "0:00 / 0:00";
     clockElement.style.fontSize = "11px";
     clockElement.style.color = ui.MUTED_COLOR;
@@ -486,7 +498,8 @@
     canvas.style.borderRadius = "4px";
 
     seek.style.width = "100%";
-    seek.style.marginTop = "10px";
+    seek.style.boxSizing = "border-box";
+    seek.style.margin = "10px 0px 0px 0px";
 
     listElement.style.marginTop = "12px";
 

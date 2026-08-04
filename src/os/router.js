@@ -23,8 +23,6 @@
   }
 
   function makeRouter() {
-    var isApplying = false;
-
     function names(text) {
       var raw = decode(text).split(SEPARATOR);
       var found = [];
@@ -73,30 +71,6 @@
       return found;
     }
 
-    function pathOf(name) {
-      return "/" + encodeURIComponent(name);
-    }
-
-    function write(name, isReplace) {
-      if (typeof window.history == "undefined") {
-        return false;
-      }
-
-      try {
-        if (isReplace) {
-          window.history.replaceState(null, "", pathOf(name));
-        } else {
-          window.history.pushState(null, "", pathOf(name));
-        }
-
-        return true;
-      } catch (error) {
-        window.location.hash = encodeURIComponent(name);
-
-        return false;
-      }
-    }
-
     function open(name) {
       var anApp = find(name);
 
@@ -104,11 +78,7 @@
         return false;
       }
 
-      isApplying = true;
-
       anApp.run();
-
-      isApplying = false;
 
       return true;
     }
@@ -126,36 +96,6 @@
       return opened;
     }
 
-    function navigate(name) {
-      if (!open(name)) {
-        return false;
-      }
-
-      write(name, false);
-
-      return true;
-    }
-
-    function makeRunWrapper(anApp, originalRun) {
-      return function () {
-        var result = originalRun();
-
-        if (!isApplying) {
-          write(anApp.name, false);
-        }
-
-        return result;
-      };
-    }
-
-    function watchApps() {
-      var apps = window.launcher.list();
-
-      for (var i = 0; i < apps.length; i++) {
-        apps[i].run = makeRunWrapper(apps[i], apps[i].run);
-      }
-    }
-
     function onPopState() {
       apply();
     }
@@ -164,16 +104,14 @@
 
     return {
       apply: apply,
-      navigate: navigate,
+      open: open,
       requested: requested,
-      list: list,
-      watch: watchApps
+      list: list
     };
   }
 
   var router = makeRouter();
 
-  router.watch();
   router.apply();
 
   window.makeRouter = makeRouter;
