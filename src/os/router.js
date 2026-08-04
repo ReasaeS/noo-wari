@@ -40,12 +40,9 @@
 
     function requested() {
       var fromPath = names(segmentOf(window.location.pathname));
+      var fromHash = names(window.location.hash.replace("#", ""));
 
-      if (fromPath.length > 0) {
-        return fromPath;
-      }
-
-      return names(window.location.hash.replace("#", ""));
+      return fromPath.concat(fromHash);
     }
 
     function find(name) {
