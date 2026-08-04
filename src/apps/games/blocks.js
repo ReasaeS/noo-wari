@@ -3,6 +3,12 @@
   var ROWS = 20;
   var CELL = 20;
 
+  var QUEUE_LENGTH = 3;
+  var PREVIEW_CELL = 14;
+  var SLOT_COLUMNS = 4;
+  var SLOT_ROWS = 3;
+  var GHOST_ALPHA = 0.2;
+
   var SHAPES = [
     { name: "i", color: "#6fc3c9", cells: [[0, 1], [1, 1], [2, 1], [3, 1]] },
     { name: "o", color: "#d6b46a", cells: [[1, 0], [2, 0], [1, 1], [2, 1]] },
@@ -18,12 +24,16 @@
 
     var toolbar = ui.toolbar();
     var stage = ui.center();
+    var field = document.createElement("div");
+    var side = document.createElement("div");
     var canvas = ui.canvas();
     var context = canvas.getContext("2d");
+    var queueCanvas = ui.canvas();
+    var queueContext = queueCanvas.getContext("2d");
 
     var board = [];
     var piece = null;
-    var nextShape = null;
+    var queue = [];
     var score = 0;
     var lines = 0;
     var level = 1;
@@ -54,6 +64,22 @@
 
     function randomShape() {
       return SHAPES[Math.floor(Math.random() * SHAPES.length)];
+    }
+
+    function fillQueue() {
+      while (queue.length < QUEUE_LENGTH) {
+        queue.push(randomShape());
+      }
+    }
+
+    function pullShape() {
+      fillQueue();
+
+      var shape = queue.shift();
+
+      fillQueue();
+
+      return shape;
     }
 
     function makePiece(shape) {
@@ -125,8 +151,9 @@
 
       clearLines();
 
-      piece = makePiece(nextShape);
-      nextShape = randomShape();
+      piece = makePiece(pullShape());
+
+      paintQueue();
 
       if (!fits(piece.cells, piece.x, piece.y)) {
         finish();
@@ -177,6 +204,16 @@
       restartTimer();
     }
 
+    function landing() {
+      var y = piece.y;
+
+      while (fits(piece.cells, piece.x, y + 1)) {
+        y = y + 1;
+      }
+
+      return y;
+    }
+
     function draw() {
       context.fillStyle = "#1b2029";
       context.fillRect(0, 0, canvas.width, canvas.height);
@@ -190,7 +227,20 @@
       }
 
       if (piece != null) {
-        for (var i = 0; i < piece.cells.length; i++) {
+        var rest = landing();
+        var i;
+
+        if (rest != piece.y) {
+          for (i = 0; i < piece.cells.length; i++) {
+            drawGhost(
+              piece.x + piece.cells[i][0],
+              rest + piece.cells[i][1],
+              piece.shape.color
+            );
+          }
+        }
+
+        for (i = 0; i < piece.cells.length; i++) {
           drawCell(
             piece.x + piece.cells[i][0],
             piece.y + piece.cells[i][1],
@@ -224,6 +274,61 @@
 
       context.fillStyle = color;
       context.fillRect(column * CELL + 1, row * CELL + 1, CELL - 2, CELL - 2);
+    }
+
+    function drawGhost(column, row, color) {
+      if (row < 0) {
+        return;
+      }
+
+      context.globalAlpha = GHOST_ALPHA;
+      context.fillStyle = color;
+      context.fillRect(column * CELL + 1, row * CELL + 1, CELL - 2, CELL - 2);
+      context.globalAlpha = 1;
+
+      context.strokeStyle = color;
+      context.lineWidth = 1;
+      context.strokeRect(column * CELL + 1.5, row * CELL + 1.5, CELL - 3, CELL - 3);
+    }
+
+    function paintPreview(shape, slot) {
+      var minX = SLOT_COLUMNS;
+      var minY = SLOT_ROWS;
+      var maxX = 0;
+      var maxY = 0;
+      var i;
+
+      for (i = 0; i < shape.cells.length; i++) {
+        minX = Math.min(minX, shape.cells[i][0]);
+        maxX = Math.max(maxX, shape.cells[i][0]);
+        minY = Math.min(minY, shape.cells[i][1]);
+        maxY = Math.max(maxY, shape.cells[i][1]);
+      }
+
+      var wide = maxX - minX + 1;
+      var high = maxY - minY + 1;
+      var left = (SLOT_COLUMNS - wide) * PREVIEW_CELL / 2;
+      var top = slot * SLOT_ROWS * PREVIEW_CELL + (SLOT_ROWS - high) * PREVIEW_CELL / 2;
+
+      queueContext.fillStyle = shape.color;
+
+      for (i = 0; i < shape.cells.length; i++) {
+        queueContext.fillRect(
+          left + (shape.cells[i][0] - minX) * PREVIEW_CELL + 1,
+          top + (shape.cells[i][1] - minY) * PREVIEW_CELL + 1,
+          PREVIEW_CELL - 2,
+          PREVIEW_CELL - 2
+        );
+      }
+    }
+
+    function paintQueue() {
+      queueContext.fillStyle = "#1b2029";
+      queueContext.fillRect(0, 0, queueCanvas.width, queueCanvas.height);
+
+      for (var i = 0; i < queue.length; i++) {
+        paintPreview(queue[i], i);
+      }
     }
 
     function move(dx) {
@@ -312,8 +417,8 @@
       isOver = false;
       isPaused = false;
 
-      nextShape = randomShape();
-      piece = makePiece(randomShape());
+      queue = [];
+      piece = makePiece(pullShape());
 
       scoreValue.textContent = "0";
       linesValue.textContent = "0";
@@ -321,6 +426,7 @@
       stateValue.textContent = "";
       stateValue.style.color = ui.ACCENT_COLOR;
 
+      paintQueue();
       draw();
       restartTimer();
     }
@@ -369,6 +475,21 @@
     canvas.style.borderWidth = "1px";
     canvas.style.borderColor = ui.BORDER_COLOR;
 
+    queueCanvas.width = SLOT_COLUMNS * PREVIEW_CELL;
+    queueCanvas.height = QUEUE_LENGTH * SLOT_ROWS * PREVIEW_CELL;
+    queueCanvas.style.borderStyle = "solid";
+    queueCanvas.style.borderWidth = "1px";
+    queueCanvas.style.borderColor = ui.BORDER_COLOR;
+
+    field.style.display = "flex";
+    field.style.gap = "12px";
+    field.style.alignItems = "flex-start";
+
+    side.style.display = "flex";
+    side.style.flexDirection = "column";
+    side.style.alignItems = "center";
+    side.style.gap = "6px";
+
     toolbar.appendChild(ui.button("new game", start));
     toolbar.appendChild(ui.button("pause", togglePause));
     toolbar.appendChild(ui.spacer());
@@ -380,7 +501,13 @@
     toolbar.appendChild(levelValue);
     toolbar.appendChild(stateValue);
 
-    stage.appendChild(canvas);
+    side.appendChild(ui.label("next"));
+    side.appendChild(queueCanvas);
+
+    field.appendChild(canvas);
+    field.appendChild(side);
+
+    stage.appendChild(field);
 
     aSheet.appendChild(toolbar);
     aSheet.appendChild(stage);
@@ -398,5 +525,5 @@
     return stop;
   }
 
-  window.makeApp("tetris", "stack the falling blocks", 380, 560, build, "games");
+  window.makeApp("blocks", "stack the falling blocks", 380, 560, build, "games");
 })();

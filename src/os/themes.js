@@ -15,7 +15,10 @@
     ember: "forge",
     orchid: "bloom",
     mono: "drift",
-    abyss: "trench"
+    abyss: "trench",
+    sumi: "ink",
+    meridian: "orbit",
+    fern: "canopy"
   };
 
   function copyPalette(source) {
@@ -341,7 +344,15 @@
         return false;
       }
 
-      return land(activeName);
+      if (land(activeName)) {
+        return true;
+      }
+
+      activeName = "";
+
+      store();
+
+      return false;
     }
 
     function kinds() {

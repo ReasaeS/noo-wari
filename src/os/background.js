@@ -265,6 +265,175 @@
     "  gl_FragColor = vec4(color, 1.0);\n" +
     "}\n";
 
+  var INK_COLOR = "#14120f";
+
+  var INK_SHADER_SOURCE =
+    "float fibre(vec2 p) {\n" +
+    "  float a = sin(p.x * 41.13 + p.y * 17.61);\n" +
+    "  float b = sin(p.x * 9.47 - p.y * 63.29);\n" +
+    "  return fract(a * b * 137.71 + a * 3.19);\n" +
+    "}\n" +
+    "float wash(vec2 p, vec2 at, float radius, float wobble, float seed) {\n" +
+    "  vec2 d = p - at;\n" +
+    "  float r = length(d);\n" +
+    "  float a = atan(d.y, d.x);\n" +
+    "  float edge = radius;\n" +
+    "  edge += sin(a * 3.0 + seed) * wobble;\n" +
+    "  edge += sin(a * 5.0 - seed * 1.7) * wobble * 0.62;\n" +
+    "  edge += sin(a * 8.0 + seed * 2.3) * wobble * 0.34;\n" +
+    "  float body = 1.0 - smoothstep(edge - 0.10, edge, r);\n" +
+    "  float lip = (r - edge) * 15.0;\n" +
+    "  return body * 0.72 + exp(-lip * lip) * 0.45;\n" +
+    "}\n" +
+    "void main() {\n" +
+    "  vec2 uv = gl_FragCoord.xy / uResolution;\n" +
+    "  vec2 p = uv - 0.5;\n" +
+    "  p.x *= uResolution.x / uResolution.y;\n" +
+    "  vec3 color = mix(vec3(0.058, 0.052, 0.046), vec3(0.019, 0.017, 0.015), length(p) * 0.95);\n" +
+    "  float amount = 0.0;\n" +
+    "  for (int i = 0; i < 5; i++) {\n" +
+    "    float f = float(i);\n" +
+    "    float cycle = fract(uTime * 0.042 + f * 0.21);\n" +
+    "    float radius = 0.06 + cycle * 0.52;\n" +
+    "    float fade = (1.0 - cycle) * smoothstep(0.0, 0.14, cycle);\n" +
+    "    vec2 at = vec2(sin(f * 2.11 + 0.7) * 0.40, cos(f * 1.73) * 0.28);\n" +
+    "    amount += wash(p, at, radius, 0.018 + cycle * 0.030, f * 1.9) * fade;\n" +
+    "  }\n" +
+    "  float dense = min(amount, 1.0);\n" +
+    "  color += vec3(0.180, 0.168, 0.155) * amount;\n" +
+    "  color += vec3(0.36, 0.13, 0.075) * dense * dense * dense * 0.40;\n" +
+    "  float streak = fibre(vec2(uv.x * 3.0, floor(uv.y * 520.0)));\n" +
+    "  color += vec3(0.030, 0.028, 0.025) * (streak - 0.5) * 0.9;\n" +
+    "  float grain = fibre(gl_FragCoord.xy * 0.7 + 11.3);\n" +
+    "  color += (grain - 0.5) * 0.008;\n" +
+    "  gl_FragColor = vec4(color, 1.0);\n" +
+    "}\n";
+
+  var ORBIT_COLOR = "#0c1024";
+
+  var ORBIT_SHADER_SOURCE =
+    "float rail(vec2 p, float rx, float ry, float thickness) {\n" +
+    "  vec2 q = vec2(p.x / rx, p.y / ry);\n" +
+    "  float d = abs(length(q) - 1.0) * min(rx, ry);\n" +
+    "  return thickness / (d + thickness);\n" +
+    "}\n" +
+    "float mote(vec2 p, vec2 at, float size) {\n" +
+    "  vec2 d = p - at;\n" +
+    "  return size / (dot(d, d) * 320.0 + size);\n" +
+    "}\n" +
+    "void main() {\n" +
+    "  vec2 uv = gl_FragCoord.xy / uResolution;\n" +
+    "  vec2 p = uv - 0.5;\n" +
+    "  p.x *= uResolution.x / uResolution.y;\n" +
+    "  vec3 color = mix(vec3(0.040, 0.044, 0.078), vec3(0.009, 0.011, 0.026), length(p) * 1.15);\n" +
+    "  float rails = 0.0;\n" +
+    "  float spark = 0.0;\n" +
+    "  for (int i = 0; i < 4; i++) {\n" +
+    "    float f = float(i);\n" +
+    "    float tilt = 0.35 + f * 0.42;\n" +
+    "    vec2 q = vec2(p.x * cos(tilt) - p.y * sin(tilt), p.x * sin(tilt) + p.y * cos(tilt));\n" +
+    "    float rx = 0.20 + f * 0.13;\n" +
+    "    float ry = rx * (0.42 + f * 0.07);\n" +
+    "    rails += pow(rail(q, rx, ry, 0.0022), 1.6) * (0.55 - f * 0.07);\n" +
+    "    float speed = 0.42 - f * 0.07;\n" +
+    "    for (int k = 0; k < 3; k++) {\n" +
+    "      float fk = float(k);\n" +
+    "      float angle = uTime * speed + f * 2.3 - fk * 0.17;\n" +
+    "      vec2 at = vec2(rx * cos(angle), ry * sin(angle));\n" +
+    "      spark += mote(q, at, 0.0022) * (1.0 - fk * 0.32);\n" +
+    "    }\n" +
+    "  }\n" +
+    "  color += vec3(0.34, 0.42, 0.80) * rails * 0.26;\n" +
+    "  color += mix(vec3(0.95, 0.72, 0.34), vec3(1.00, 0.93, 0.74), min(spark, 1.0)) * spark * 0.80;\n" +
+    "  float haze = 1.0 - smoothstep(0.0, 0.60, length(p));\n" +
+    "  color += vec3(0.12, 0.14, 0.30) * haze * 0.22;\n" +
+    "  float grain = fract(sin(dot(gl_FragCoord.xy, vec2(27.31, 51.07))) * 6217.9);\n" +
+    "  color += (grain - 0.5) * 0.006;\n" +
+    "  gl_FragColor = vec4(color, 1.0);\n" +
+    "}\n";
+
+  var CANOPY_COLOR = "#0d150e";
+
+  var CANOPY_SHADER_SOURCE =
+    "float seedOf(vec2 cell) {\n" +
+    "  float a = sin(cell.x * 27.31 + cell.y * 51.07);\n" +
+    "  float b = sin(cell.x * 73.19 - cell.y * 11.83);\n" +
+    "  return fract(a * b * 91.37 + b * 5.71);\n" +
+    "}\n" +
+    "float sprig(vec2 p, float angle, float span, float width) {\n" +
+    "  vec2 q = vec2(p.x * cos(angle) - p.y * sin(angle), p.x * sin(angle) + p.y * cos(angle));\n" +
+    "  q.x /= span;\n" +
+    "  q.y /= width;\n" +
+    "  return 1.0 - smoothstep(0.55, 1.0, length(q));\n" +
+    "}\n" +
+    "float thicket(vec2 g, float bias) {\n" +
+    "  vec2 base = floor(g);\n" +
+    "  float cover = 0.0;\n" +
+    "  for (int y = -1; y <= 1; y++) {\n" +
+    "    for (int x = -1; x <= 1; x++) {\n" +
+    "      vec2 cell = base + vec2(float(x), float(y));\n" +
+    "      float s = seedOf(cell + vec2(bias));\n" +
+    "      float sway = sin(uTime * (0.18 + s * 0.22) + s * 6.3) * 0.14;\n" +
+    "      vec2 at = cell + vec2(0.5) + vec2(sin(s * 11.0), cos(s * 7.0)) * 0.30;\n" +
+    "      cover += sprig(g - at, s * 3.14 + sway, 0.46 + s * 0.30, 0.12 + s * 0.10);\n" +
+    "    }\n" +
+    "  }\n" +
+    "  return min(cover, 1.0);\n" +
+    "}\n" +
+    "void main() {\n" +
+    "  vec2 uv = gl_FragCoord.xy / uResolution;\n" +
+    "  vec2 p = uv - 0.5;\n" +
+    "  p.x *= uResolution.x / uResolution.y;\n" +
+    "  float near = thicket(p * 3.4 + vec2(0.0, uTime * 0.016), 0.0);\n" +
+    "  float far = thicket(p * 6.2 + vec2(4.7, uTime * 0.030), 17.0);\n" +
+    "  float cover = max(near, far * 0.72);\n" +
+    "  float light = 1.0 - cover;\n" +
+    "  vec3 color = mix(vec3(0.026, 0.044, 0.027), vec3(0.010, 0.019, 0.012), uv.y);\n" +
+    "  color += vec3(0.34, 0.50, 0.20) * light * light * 0.17;\n" +
+    "  color += vec3(0.08, 0.14, 0.06) * far * (1.0 - near) * 0.45;\n" +
+    "  float shaft = max(sin((p.x * 1.4 + p.y * 2.2) * 3.0 + uTime * 0.05), 0.0);\n" +
+    "  shaft = shaft * shaft;\n" +
+    "  color += vec3(0.26, 0.40, 0.16) * shaft * shaft * light * 0.14;\n" +
+    "  float grain = seedOf(gl_FragCoord.xy * 0.9 + 5.7);\n" +
+    "  color += (grain - 0.5) * 0.007;\n" +
+    "  gl_FragColor = vec4(color, 1.0);\n" +
+    "}\n";
+
+  var HALO_COLOR = "#0d1620";
+
+  var HALO_SHADER_SOURCE =
+    "float speck(vec2 p) {\n" +
+    "  float a = sin(p.x * 19.73 + p.y * 47.11);\n" +
+    "  float b = sin(p.x * 63.29 - p.y * 8.17);\n" +
+    "  return fract(a * b * 213.47 + b * 2.71);\n" +
+    "}\n" +
+    "float veil(float r, float radius, float width) {\n" +
+    "  float t = (r - radius) / width;\n" +
+    "  return exp(-t * t);\n" +
+    "}\n" +
+    "float sheen(float r) {\n" +
+    "  return veil(r, 0.20, 0.020) + veil(r, 0.36, 0.032) * 0.55;\n" +
+    "}\n" +
+    "void main() {\n" +
+    "  vec2 uv = gl_FragCoord.xy / uResolution;\n" +
+    "  vec2 p = uv - 0.5;\n" +
+    "  p.x *= uResolution.x / uResolution.y;\n" +
+    "  vec2 sun = vec2(0.0, 0.10);\n" +
+    "  vec2 d = p - sun;\n" +
+    "  float r = length(d) * (1.0 + sin(uTime * 0.16) * 0.014);\n" +
+    "  vec3 color = mix(vec3(0.054, 0.072, 0.094), vec3(0.013, 0.021, 0.034), length(p) * 1.1);\n" +
+    "  vec3 arc = vec3(sheen(r * 0.980), sheen(r), sheen(r * 1.022));\n" +
+    "  color += arc * vec3(0.52, 0.74, 0.96) * 0.42;\n" +
+    "  color += vec3(0.42, 0.68, 0.88) * exp(-r * 6.5) * 0.28;\n" +
+    "  float pillar = exp(-abs(d.x) * 26.0) * exp(-abs(d.y) * 2.4);\n" +
+    "  color += vec3(0.38, 0.60, 0.82) * pillar * 0.24;\n" +
+    "  float drift = speck(floor(gl_FragCoord.xy * 0.85) + floor(uTime * 1.3));\n" +
+    "  color += vec3(0.70, 0.86, 1.00) * smoothstep(0.9986, 1.0, drift) * 0.60;\n" +
+    "  float grain = speck(gl_FragCoord.xy * 0.6 + 3.1);\n" +
+    "  color += (grain - 0.5) * 0.006;\n" +
+    "  gl_FragColor = vec4(color, 1.0);\n" +
+    "}\n";
+
   var FITS = [
     { name: "cover", size: "cover", repeat: "no-repeat", position: "center center" },
     { name: "contain", size: "contain", repeat: "no-repeat", position: "center center" },
@@ -875,6 +1044,26 @@
   backgrounds.add(
     "trench",
     makeShader(TRENCH_SHADER_SOURCE, TRENCH_COLOR)
+  );
+
+  backgrounds.add(
+    "ink",
+    makeShader(INK_SHADER_SOURCE, INK_COLOR)
+  );
+
+  backgrounds.add(
+    "orbit",
+    makeShader(ORBIT_SHADER_SOURCE, ORBIT_COLOR)
+  );
+
+  backgrounds.add(
+    "canopy",
+    makeShader(CANOPY_SHADER_SOURCE, CANOPY_COLOR)
+  );
+
+  backgrounds.add(
+    "halo",
+    makeShader(HALO_SHADER_SOURCE, HALO_COLOR)
   );
 
   if (backgrounds.supportsShaders()) {

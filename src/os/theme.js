@@ -99,6 +99,48 @@
       danger: "#c96f76",
       text: "#cfdae4",
       muted: "#748696"
+    },
+    {
+      name: "sumi",
+      primary: "#24211f",
+      secondary: "#2e2a27",
+      tertiary: "#443c36",
+      accent: "#d4614a",
+      info: "#8d9c93",
+      alt: "#b98d6f",
+      ok: "#8f9f6d",
+      warn: "#ceab5e",
+      danger: "#c2565f",
+      text: "#e8e1d7",
+      muted: "#978d82"
+    },
+    {
+      name: "meridian",
+      primary: "#232840",
+      secondary: "#2c334f",
+      tertiary: "#3d4668",
+      accent: "#e8c06a",
+      info: "#7f9ad4",
+      alt: "#a98ad8",
+      ok: "#78b58c",
+      warn: "#c9a45c",
+      danger: "#c96a72",
+      text: "#dfe3f2",
+      muted: "#8189a8"
+    },
+    {
+      name: "fern",
+      primary: "#232a24",
+      secondary: "#2c352d",
+      tertiary: "#3d4a3e",
+      accent: "#b5cc6a",
+      info: "#7fb0a4",
+      alt: "#c2a86a",
+      ok: "#8fbf72",
+      warn: "#d0b862",
+      danger: "#c1705f",
+      text: "#e0e6d9",
+      muted: "#88927f"
     }
   ];
 

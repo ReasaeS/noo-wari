@@ -74,6 +74,18 @@
       context.fillRect(0, 0, canvas.width, canvas.height);
     }
 
+    function stamp(x, y) {
+      if (tool == "eraser") {
+        context.fillStyle = "#2f3745";
+      } else {
+        context.fillStyle = color;
+      }
+
+      context.beginPath();
+      context.arc(x, y, Math.max(size / 2, 0.5), 0, Math.PI * 2);
+      context.fill();
+    }
+
     function beginStroke(event) {
       isDrawing = true;
 
@@ -83,6 +95,8 @@
       startY = spot.y;
 
       snapshot = context.getImageData(0, 0, canvas.width, canvas.height);
+
+      stamp(startX, startY);
 
       if (tool == "brush" || tool == "eraser") {
         context.beginPath();

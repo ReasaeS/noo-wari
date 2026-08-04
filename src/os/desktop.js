@@ -405,6 +405,8 @@
       var label = document.createElement("span");
       var editor = document.createElement("textarea");
 
+      aWindow.least(FOLDER_WIDTH);
+
       label.textContent = anItem.name;
       label.style.marginLeft = "4px";
       label.style.color = "var(--nw-text)";
@@ -455,6 +457,8 @@
 
       var aWindow = window.makeWindow(FOLDER_WIDTH, FOLDER_HEIGHT);
       var label = document.createElement("span");
+
+      aWindow.least(FOLDER_WIDTH);
 
       label.textContent = anItem.name;
       label.style.marginLeft = "4px";

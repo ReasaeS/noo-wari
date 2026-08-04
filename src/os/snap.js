@@ -182,6 +182,7 @@
     var level = document.createElement("div");
     var mark = document.createElement("div");
     var action = ui.button("listen", null);
+    var trigger = ui.button("auto-snap", null);
     var cycle = document.createElement("div");
     var sheet = document.createElement("div");
     var isOpen = false;
@@ -676,6 +677,10 @@
       });
     }
 
+    function onTrigger() {
+      accept(window.performance.now());
+    }
+
     function onAction() {
       if (phase == "off") {
         listen();
@@ -723,6 +728,9 @@
 
     action.style.width = "100%";
 
+    trigger.style.width = "100%";
+    trigger.style.marginTop = "6px";
+
     cycle.style.width = "100%";
     cycle.style.marginTop = "6px";
     cycle.style.padding = "4px 6px";
@@ -757,6 +765,7 @@
     document.body.appendChild(sheet);
 
     action.addEventListener("click", onAction);
+    trigger.addEventListener("click", onTrigger);
     cycle.addEventListener("mousedown", onCycle);
     document.addEventListener("mousedown", onAway, true);
 
@@ -767,6 +776,7 @@
     aBody.appendChild(reading);
     aBody.appendChild(track);
     aBody.appendChild(action);
+    aBody.appendChild(trigger);
     aBody.appendChild(cycle);
 
     paintCycle();

@@ -178,6 +178,7 @@
     phraseElement.style.userSelect = "none";
 
     input.style.width = "100%";
+    input.style.boxSizing = "border-box";
     input.style.padding = "10px";
     input.style.fontSize = "14px";
 

@@ -541,8 +541,10 @@
         if (edge.xFactor != 0) {
           newWidth = startWidth + edge.xFactor * (moveEvent.clientX - startX);
 
-          if (newWidth < MIN_WIDTH) {
-            newWidth = MIN_WIDTH;
+          var floorWidth = typeof aWindow.floorWidth == "number" ? aWindow.floorWidth : MIN_WIDTH;
+
+          if (newWidth < floorWidth) {
+            newWidth = floorWidth;
           }
 
           windowStyler.setProp("width", newWidth, "px");
@@ -624,6 +626,18 @@
     setProp("boxSizing", "border-box");
     setProp("overflow", "hidden");
     setProp("display", "block");
+
+    aWindow.floorWidth = MIN_WIDTH;
+
+    function least(amount) {
+      if (typeof amount != "number" || amount < MIN_WIDTH) {
+        return MIN_WIDTH;
+      }
+
+      aWindow.floorWidth = Math.min(amount, workArea().width);
+
+      return aWindow.floorWidth;
+    }
 
     var isClosed = false;
     var isMinimized = false;
@@ -891,6 +905,7 @@
     aWindow.minimize = minimize;
     aWindow.maximize = maximize;
     aWindow.snap = snap;
+    aWindow.least = least;
     aWindow.refit = refit;
     aWindow.present = present;
     aWindow.setStack = setStack;

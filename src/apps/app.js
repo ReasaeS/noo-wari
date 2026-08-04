@@ -284,6 +284,8 @@
 
       appWindow = window.makeWindow(width, height);
 
+      appWindow.least(width);
+
       if (typeof window.device != "undefined" && window.device.isPhone()) {
         appWindow.snap("top");
       }

@@ -1,5 +1,6 @@
 (function () {
   var SIZE = 9;
+  var BOX_TINT = "linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.22))";
   var LEVELS = [
     { name: "easy", holes: 36 },
     { name: "medium", holes: 46 },
@@ -140,6 +141,12 @@
       if (selected == aCell) {
         cellStyle.backgroundColor = "var(--nw-active)";
       }
+
+      if (aCell.isShaded && selected != aCell) {
+        cellStyle.backgroundImage = BOX_TINT;
+      } else {
+        cellStyle.backgroundImage = "none";
+      }
     }
 
     function paintAll() {
@@ -190,18 +197,22 @@
 
       if (column % 3 == 0) {
         elementStyle.borderLeftWidth = "2px";
+        elementStyle.borderLeftColor = ui.MUTED_COLOR;
       }
 
       if (row % 3 == 0) {
         elementStyle.borderTopWidth = "2px";
+        elementStyle.borderTopColor = ui.MUTED_COLOR;
       }
 
-      if (column == SIZE - 1) {
+      if (column % 3 == 2) {
         elementStyle.borderRightWidth = "2px";
+        elementStyle.borderRightColor = ui.MUTED_COLOR;
       }
 
-      if (row == SIZE - 1) {
+      if (row % 3 == 2) {
         elementStyle.borderBottomWidth = "2px";
+        elementStyle.borderBottomColor = ui.MUTED_COLOR;
       }
 
       var aCell = new Object();
@@ -210,6 +221,7 @@
       aCell.row = row;
       aCell.column = column;
       aCell.isFixed = false;
+      aCell.isShaded = (Math.floor(row / 3) + Math.floor(column / 3)) % 2 == 1;
 
       anElement.addEventListener("click", makeSelectHandler(aCell));
 

@@ -533,6 +533,8 @@
 
       configWindow = window.makeWindow(WINDOW_WIDTH, WINDOW_HEIGHT);
 
+      configWindow.least(WINDOW_WIDTH);
+
       configWindow.titleBar.appendChild(makeTitle("config"));
 
       var aSheet = makeSheet();
