@@ -276,6 +276,8 @@
 
     function open() {
       if (isOpen()) {
+        appWindow.restore();
+
         window.desktops.move(appWindow, window.desktops.current());
         window.desktops.focus(appWindow);
 

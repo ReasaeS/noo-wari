@@ -1,5 +1,9 @@
 (function () {
   var LIBRARY_NAME = "music";
+  var LOOP_LABELS = ["loop: off", "loop: on"];
+  var COVER_SIZE = 44;
+
+  var live = null;
 
   var AUDIO_TAILS = [
     ".mp3", ".ogg", ".oga", ".opus", ".wav", ".flac",
@@ -83,6 +87,12 @@
     var volume = 80;
     var frameTimer = 0;
     var isScrubbing = false;
+    var isLooping = true;
+    var isHeld = false;
+    var isArmed = false;
+    var themeSong = null;
+    var announced = null;
+    var ticket = 0;
 
     var audio = null;
     var source = null;
@@ -93,16 +103,19 @@
     var clockElement = document.createElement("div");
     var listElement = document.createElement("div");
     var seek = ui.range(0, 1000, 0, null);
+    var loopButton = ui.button(LOOP_LABELS[1], null);
 
     element.preload = "metadata";
     element.volume = volume / 100;
+    element.loop = isLooping;
 
     function release() {
-      if (href != "") {
+      if (href != "" && !isHeld) {
         window.vault.release(href);
-
-        href = "";
       }
+
+      href = "";
+      isHeld = false;
     }
 
     function ensureGraph() {
@@ -179,13 +192,13 @@
       var nameElement = document.createElement("span");
       var sizeElement = document.createElement("span");
 
-      nameElement.textContent = entry.node.name;
+      nameElement.textContent = entry.title;
       nameElement.style.minWidth = "0px";
       nameElement.style.overflow = "hidden";
       nameElement.style.textOverflow = "ellipsis";
       nameElement.style.whiteSpace = "nowrap";
 
-      sizeElement.textContent = entry.where + "  ·  " + formatBytes(entry.node.size);
+      sizeElement.textContent = entry.artist + "  ·  " + entry.note;
       sizeElement.style.marginLeft = "14px";
       sizeElement.style.minWidth = "0px";
       sizeElement.style.overflow = "hidden";
@@ -221,18 +234,80 @@
       return aRow;
     }
 
-    function scan() {
-      var wanted = index == -1 ? null : tracks[index].node;
+    function makeFileEntry(aNode, where) {
+      var anEntry = new Object();
 
-      tracks = collect(window.filesystem.home(), [], []);
+      anEntry.kind = "file";
+      anEntry.node = aNode;
+      anEntry.title = aNode.name;
+      anEntry.artist = where == "" ? "home" : where;
+      anEntry.note = formatBytes(aNode.size);
 
-      index = -1;
+      anEntry.source = function () {
+        return window.vault.url(aNode.blob, aNode.type);
+      };
+
+      anEntry.art = function (size) {
+        return window.songs.emblem(size);
+      };
+
+      return anEntry;
+    }
+
+    function makeSongEntry(aSong) {
+      var anEntry = new Object();
+
+      anEntry.kind = "song";
+      anEntry.key = aSong.key;
+      anEntry.title = aSong.title;
+      anEntry.artist = aSong.artist;
+      anEntry.note = "theme song";
+
+      anEntry.source = function () {
+        return window.songs.url(aSong.key);
+      };
+
+      anEntry.art = function (size) {
+        return window.songs.cover(aSong.key, size);
+      };
+
+      return anEntry;
+    }
+
+    function spotOf(anEntry) {
+      if (anEntry == null) {
+        return -1;
+      }
 
       for (var i = 0; i < tracks.length; i++) {
-        if (tracks[i].node == wanted) {
-          index = i;
+        if (anEntry.kind == "song" && tracks[i].kind == "song" && tracks[i].key == anEntry.key) {
+          return i;
+        }
+
+        if (anEntry.kind == "file" && tracks[i].node == anEntry.node) {
+          return i;
         }
       }
+
+      return -1;
+    }
+
+    function scan() {
+      var wanted = index == -1 ? null : tracks[index];
+      var found = [];
+
+      if (themeSong != null) {
+        found.push(makeSongEntry(themeSong));
+      }
+
+      var files = collect(window.filesystem.home(), [], []);
+
+      for (var i = 0; i < files.length; i++) {
+        found.push(makeFileEntry(files[i].node, files[i].where));
+      }
+
+      tracks = found;
+      index = spotOf(wanted);
 
       paintList();
     }
@@ -242,32 +317,43 @@
         return Promise.resolve(false);
       }
 
-      var aNode = tracks[spot].node;
+      var anEntry = tracks[spot];
+
+      ticket = ticket + 1;
+
+      var mine = ticket;
 
       index = spot;
 
-      titleValue.textContent = aNode.name;
+      titleValue.textContent = anEntry.title;
       titleValue.style.color = ui.ACCENT_COLOR;
 
       paintList();
 
-      return window.vault.url(aNode.blob, aNode.type).then(function (link) {
+      return anEntry.source().then(function (link) {
+        if (mine != ticket) {
+          if (anEntry.kind != "song" && link != "") {
+            window.vault.release(link);
+          }
+
+          return false;
+        }
+
         if (link == "") {
-          titleValue.textContent = "could not read " + aNode.name;
+          titleValue.textContent = "could not read " + anEntry.title;
           titleValue.style.color = ui.DANGER_COLOR;
 
           return false;
         }
 
-        if (index != spot) {
-          window.vault.release(link);
-
-          return false;
+        if (href == link) {
+          return true;
         }
 
         release();
 
         href = link;
+        isHeld = anEntry.kind == "song";
         element.src = link;
 
         return true;
@@ -302,11 +388,49 @@
       var pledge = element.play();
 
       if (pledge != null && typeof pledge.catch == "function") {
-        pledge.catch(function () {
+        pledge.catch(function (error) {
+          if (error != null && error.name == "NotAllowedError") {
+            arm();
+
+            return;
+          }
+
+          if (error != null && error.name == "AbortError") {
+            return;
+          }
+
           titleValue.textContent = "this browser will not play that file";
           titleValue.style.color = ui.DANGER_COLOR;
         });
       }
+    }
+
+    function onGesture() {
+      disarm();
+
+      play();
+    }
+
+    function arm() {
+      if (isArmed) {
+        return;
+      }
+
+      isArmed = true;
+
+      document.addEventListener("pointerdown", onGesture, true);
+      document.addEventListener("keydown", onGesture, true);
+    }
+
+    function disarm() {
+      if (!isArmed) {
+        return;
+      }
+
+      isArmed = false;
+
+      document.removeEventListener("pointerdown", onGesture, true);
+      document.removeEventListener("keydown", onGesture, true);
     }
 
     function pause() {
@@ -339,33 +463,59 @@
       start(spot);
     }
 
-    function drawSpectrum() {
-      var width = canvas.width;
-      var height = canvas.height;
-
+    function paintBackdrop() {
       context.fillStyle = "#262a31";
-      context.fillRect(0, 0, width, height);
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
-      if (analyser == null) {
-        frameTimer = window.requestAnimationFrame(drawSpectrum);
+    function onScreen() {
+      return aSheet.offsetParent != null;
+    }
+
+    function pump() {
+      if (frameTimer != 0) {
+        return;
+      }
+
+      frameTimer = window.requestAnimationFrame(drawSpectrum);
+    }
+
+    function drawSpectrum() {
+      frameTimer = 0;
+
+      if (!onScreen()) {
+        if (!element.paused) {
+          pump();
+        }
 
         return;
       }
 
-      analyser.getByteFrequencyData(spectrum);
+      var width = canvas.width;
+      var height = canvas.height;
 
-      var bars = spectrum.length;
-      var barWidth = width / bars;
+      paintBackdrop();
 
-      for (var i = 0; i < bars; i++) {
-        var amount = spectrum[i] / 255;
-        var barHeight = amount * height;
-
-        context.fillStyle = "hsl(" + Math.round(145 + amount * 90) + ", 45%, 62%)";
-        context.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
+      if (element.paused) {
+        return;
       }
 
-      frameTimer = window.requestAnimationFrame(drawSpectrum);
+      if (analyser != null) {
+        analyser.getByteFrequencyData(spectrum);
+
+        var bars = spectrum.length;
+        var barWidth = width / bars;
+
+        for (var i = 0; i < bars; i++) {
+          var amount = spectrum[i] / 255;
+          var barHeight = amount * height;
+
+          context.fillStyle = "hsl(" + Math.round(145 + amount * 90) + ", 45%, 62%)";
+          context.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
+        }
+      }
+
+      pump();
     }
 
     function onSeekDown() {
@@ -391,12 +541,73 @@
       step(1);
     }
 
+    function onPlaying() {
+      if (index == -1) {
+        return;
+      }
+
+      var anEntry = tracks[index];
+
+      titleValue.textContent = anEntry.title;
+      titleValue.style.color = ui.ACCENT_COLOR;
+
+      if (anEntry == announced) {
+        return;
+      }
+
+      announced = anEntry;
+
+      window.notices.show(anEntry.art(COVER_SIZE), anEntry.title, anEntry.artist);
+    }
+
+    function onPause() {
+      announced = null;
+
+      paintBackdrop();
+    }
+
+    function onLoop() {
+      isLooping = !isLooping;
+
+      element.loop = isLooping;
+      loopButton.textContent = LOOP_LABELS[isLooping ? 1 : 0];
+    }
+
+    function onTheme(name) {
+      var found = window.songs.forTheme(name == "" ? window.theme.current() : name);
+
+      if (found == null) {
+        return;
+      }
+
+      if (themeSong != null && themeSong.key == found.key) {
+        return;
+      }
+
+      var wasSong = index != -1 && tracks[index].kind == "song";
+      var wasPlaying = !element.paused;
+
+      themeSong = found;
+
+      scan();
+
+      if (!wasSong) {
+        return;
+      }
+
+      if (wasPlaying) {
+        start(0);
+      } else {
+        load(0);
+      }
+    }
+
     function onError() {
       if (index == -1) {
         return;
       }
 
-      titleValue.textContent = "cannot decode " + tracks[index].node.name;
+      titleValue.textContent = "cannot decode " + tracks[index].title;
       titleValue.style.color = ui.DANGER_COLOR;
     }
 
@@ -506,7 +717,12 @@
     element.addEventListener("timeupdate", onTimeUpdate);
     element.addEventListener("loadedmetadata", onTimeUpdate);
     element.addEventListener("ended", onEnded);
+    element.addEventListener("playing", onPlaying);
+    element.addEventListener("playing", pump);
+    element.addEventListener("pause", onPause);
     element.addEventListener("error", onError);
+
+    loopButton.addEventListener("click", onLoop);
 
     seek.addEventListener("mousedown", onSeekDown);
     seek.addEventListener("mouseup", onSeekUp);
@@ -524,6 +740,7 @@
     toolbar.appendChild(ui.button("next", function () {
       step(1);
     }));
+    toolbar.appendChild(loopButton);
     toolbar.appendChild(ui.label("volume"));
     toolbar.appendChild(ui.range(0, 100, volume, onVolume));
     toolbar.appendChild(ui.spacer());
@@ -549,20 +766,54 @@
 
     aSheet.addEventListener("keydown", onKeyDown);
 
+    function adopt() {
+      var found = window.songs.forTheme(window.theme.current());
+
+      if (found == null || (themeSong != null && themeSong.key == found.key)) {
+        return themeSong != null;
+      }
+
+      themeSong = found;
+
+      scan();
+
+      return true;
+    }
+
     scan();
 
-    window.filesystem.watch(scan);
+    window.songs.ready().then(adopt);
 
-    frameTimer = window.requestAnimationFrame(drawSpectrum);
+    window.filesystem.watch(scan);
+    window.themes.watch(onTheme);
+
+    paintBackdrop();
+
+    function begin() {
+      return window.songs.ready().then(function () {
+        if (!adopt()) {
+          return false;
+        }
+
+        start(0);
+
+        return true;
+      });
+    }
 
     function teardown() {
       window.filesystem.unwatch(scan);
+      window.themes.unwatch(onTheme);
+
+      disarm();
 
       element.pause();
       element.removeAttribute("src");
       element.load();
 
       release();
+
+      live = null;
 
       if (frameTimer != 0) {
         window.cancelAnimationFrame(frameTimer);
@@ -577,8 +828,30 @@
       }
     }
 
+    live = { begin: begin };
+
     return teardown;
   }
 
-  window.makeApp("player", "play audio files from the file system", 560, 460, build, "audio");
+  var player = window.makeApp("player", "play audio files from the file system", 560, 460, build, "audio");
+
+  function autostart() {
+    return window.songs.ready().then(function () {
+      if (window.songs.forTheme(window.theme.current()) == null) {
+        return false;
+      }
+
+      if (!player.isOpen()) {
+        player.open().minimize();
+      }
+
+      if (live == null) {
+        return false;
+      }
+
+      return live.begin();
+    });
+  }
+
+  window.addEventListener("load", autostart);
 })();
