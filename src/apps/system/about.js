@@ -6,8 +6,10 @@
     location: "England, United Kingdom",
     blurb:
       "noo-wari is a desktop shell that runs in the browser. It has windows, desktops, " +
-      "a command palette, a file system and more apps than anyone will ever use. \n\n" +
-      "But most importantly, it has my soul."
+      "a command palette, a file system, and more apps than anyone will ever use. \n" +
+      "This is my everything app, and the only form of art I'm enticed by. \n\n" +
+      "Yours faithfully, \n" +
+      "Signed: Reasae Storm \n"
   };
 
   var CONTACT = [
