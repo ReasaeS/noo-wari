@@ -2,7 +2,8 @@
   var STORAGE_KEY = "noo-wari.fs";
   var LEGACY_KEY = "noo-wari.desktop";
   var DESKTOP_NAME = "desktop";
-  var SYSTEM_NAMES = ["desktop"];
+  var CONFIG_NAME = "config";
+  var SYSTEM_NAMES = ["desktop", "config"];
   var TEXT_TYPE = "text/plain";
 
   function isStarZone(anElement) {
@@ -47,6 +48,22 @@
     aNode.y = 0;
 
     window.vault.put(aNode.blob, body);
+
+    return aNode;
+  }
+
+  function makeInlineFile(name, body) {
+    var aNode = new Object();
+
+    aNode.kind = "file";
+    aNode.name = name;
+    aNode.body = body;
+    aNode.inline = true;
+    aNode.size = sizeOf(body);
+    aNode.type = TEXT_TYPE;
+    aNode.icon = "";
+    aNode.x = 0;
+    aNode.y = 0;
 
     return aNode;
   }
@@ -147,6 +164,7 @@
     );
 
     home.children.push(makeFolder(DESKTOP_NAME));
+    home.children.push(makeFolder(CONFIG_NAME));
     home.children.push(documents);
     home.children.push(makeFolder("projects"));
 
@@ -199,6 +217,10 @@
         }
       }
 
+      if (childNamed(root, CONFIG_NAME) == null) {
+        root.children.unshift(makeFolder(CONFIG_NAME));
+      }
+
       if (childNamed(root, DESKTOP_NAME) == null) {
         root.children.unshift(makeFolder(DESKTOP_NAME));
       }
@@ -218,12 +240,108 @@
       return true;
     }
 
+    function quiet() {
+      window.storage.set(STORAGE_KEY, JSON.stringify(root));
+
+      return true;
+    }
+
     function home() {
       return root;
     }
 
     function desktop() {
       return childNamed(root, DESKTOP_NAME);
+    }
+
+    function config() {
+      var found = childNamed(root, CONFIG_NAME);
+
+      if (found == null || found.kind != "folder") {
+        found = makeFolder(CONFIG_NAME);
+
+        root.children.unshift(found);
+      }
+
+      return found;
+    }
+
+    function readConfig(name) {
+      var found = childNamed(config(), name);
+
+      if (found == null || found.kind != "file") {
+        return null;
+      }
+
+      if (typeof found.body != "string") {
+        return null;
+      }
+
+      return found.body;
+    }
+
+    function writeConfig(name, body) {
+      var host = config();
+      var found = childNamed(host, name);
+
+      if (found == null) {
+        host.children.push(makeInlineFile(name, body));
+
+        save();
+
+        return true;
+      }
+
+      if (typeof found.blob == "string") {
+        window.vault.remove(found.blob);
+
+        delete found.blob;
+      }
+
+      found.kind = "file";
+      found.body = body;
+      found.inline = true;
+      found.size = sizeOf(body);
+      found.type = TEXT_TYPE;
+
+      quiet();
+
+      return true;
+    }
+
+    function removeConfig(name) {
+      var host = config();
+      var found = childNamed(host, name);
+
+      if (found == null) {
+        return false;
+      }
+
+      remove(host, found);
+
+      save();
+
+      return true;
+    }
+
+    function adoptConfig(name, legacyKey) {
+      var found = readConfig(name);
+
+      if (found != null) {
+        return found;
+      }
+
+      var carried = window.storage.get(legacyKey);
+
+      if (carried == null) {
+        return null;
+      }
+
+      writeConfig(name, carried);
+
+      window.storage.remove(legacyKey);
+
+      return carried;
     }
 
     function fresh() {
@@ -338,6 +456,16 @@
     function write(aNode, body) {
       if (aNode == null || aNode.kind != "file") {
         return Promise.resolve(false);
+      }
+
+      if (aNode.inline == true) {
+        aNode.body = body;
+        aNode.size = sizeOf(body);
+        aNode.type = TEXT_TYPE;
+
+        save();
+
+        return Promise.resolve(true);
       }
 
       if (typeof aNode.blob != "string") {
@@ -519,11 +647,19 @@
         return found;
       }
 
-      if (aNode.kind == "file" && typeof aNode.body == "string") {
+      if (aNode.kind == "file" && typeof aNode.body == "string" && aNode.inline != true) {
         found.push(aNode);
       }
 
       return found;
+    }
+
+    function reap() {
+      if (isFresh) {
+        return Promise.resolve(0);
+      }
+
+      return window.vault.sweep(blobsUnder(root, []));
     }
 
     function rehouse() {
@@ -561,11 +697,17 @@
     }
 
     load();
-    rehouse();
+    rehouse().then(reap);
 
     return {
       home: home,
       desktop: desktop,
+      config: config,
+      readConfig: readConfig,
+      writeConfig: writeConfig,
+      removeConfig: removeConfig,
+      adoptConfig: adoptConfig,
+      reap: reap,
       folder: makeFolder,
       file: makeFile,
       shortcut: makeShortcut,

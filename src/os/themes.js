@@ -1,5 +1,6 @@
 (function () {
-  var STORAGE_KEY = "noo-wari.themes";
+  var CONFIG_FILE = "themes.json";
+  var LEGACY_KEY = "noo-wari.themes";
   var SLOT = "custom";
   var KINDS = ["named", "fill", "gradient", "image"];
 
@@ -85,13 +86,13 @@
       payload.items = items;
       payload.active = activeName;
 
-      window.storage.set(STORAGE_KEY, JSON.stringify(payload));
+      window.filesystem.writeConfig(CONFIG_FILE, JSON.stringify(payload));
 
       return true;
     }
 
     function load() {
-      var raw = window.storage.get(STORAGE_KEY);
+      var raw = window.filesystem.adoptConfig(CONFIG_FILE, LEGACY_KEY);
 
       if (raw == null) {
         return false;

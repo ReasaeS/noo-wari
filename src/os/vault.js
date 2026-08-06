@@ -175,6 +175,48 @@
       });
     }
 
+    function isKept(kept, id) {
+      for (var i = 0; i < kept.length; i++) {
+        if (kept[i] == id) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function sweep(kept) {
+      if (!(kept instanceof Array)) {
+        return Promise.resolve(0);
+      }
+
+      return keys().then(function (ids) {
+        var doomed = [];
+
+        for (var i = 0; i < ids.length; i++) {
+          if (!isKept(kept, ids[i])) {
+            doomed.push(ids[i]);
+          }
+        }
+
+        if (doomed.length == 0) {
+          return 0;
+        }
+
+        return run("readwrite", function (store) {
+          for (var j = 0; j < doomed.length; j++) {
+            store["delete"](doomed[j]);
+          }
+
+          return null;
+        }).then(function () {
+          return doomed.length;
+        });
+      }).catch(function () {
+        return 0;
+      });
+    }
+
     function count() {
       return run("readonly", function (store) {
         return store.count();
@@ -235,6 +277,7 @@
       remove: remove,
       keys: keys,
       clear: clear,
+      sweep: sweep,
       count: count,
       measure: measure
     };

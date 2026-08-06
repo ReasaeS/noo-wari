@@ -955,6 +955,10 @@
     }
 
     function discard(anItem, parent) {
+      if (window.filesystem.isProtected(anItem)) {
+        return;
+      }
+
       if (parent == null) {
         removeItem(anItem);
       } else {

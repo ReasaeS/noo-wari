@@ -1,6 +1,8 @@
 (function () {
-  var STORAGE_KEY = "noo-wari.widgets";
-  var SEEDED_KEY = "noo-wari.widgets.seeded";
+  var CONFIG_FILE = "widgets.json";
+  var SEEDED_FILE = "widgets.seeded.json";
+  var LEGACY_KEY = "noo-wari.widgets";
+  var LEGACY_SEEDED_KEY = "noo-wari.widgets.seeded";
   var LAYER_Z_INDEX = 0;
   var MENU_Z_INDEX = 1300;
   var EDGE_MARGIN = 14;
@@ -211,7 +213,7 @@
         });
       }
 
-      window.storage.set(STORAGE_KEY, JSON.stringify(payload));
+      window.filesystem.writeConfig(CONFIG_FILE, JSON.stringify(payload));
 
       return true;
     }
@@ -801,7 +803,7 @@
     }
 
     function saved() {
-      var raw = window.storage.get(STORAGE_KEY);
+      var raw = window.filesystem.adoptConfig(CONFIG_FILE, LEGACY_KEY);
 
       if (raw == null) {
         return null;
@@ -843,7 +845,7 @@
     }
 
     function sown() {
-      var raw = window.storage.get(SEEDED_KEY);
+      var raw = window.filesystem.adoptConfig(SEEDED_FILE, LEGACY_SEEDED_KEY);
 
       if (raw == null) {
         return [];
@@ -891,7 +893,7 @@
       }
 
       if (added) {
-        window.storage.set(SEEDED_KEY, JSON.stringify(planted));
+        window.filesystem.writeConfig(SEEDED_FILE, JSON.stringify(planted));
 
         store();
       }

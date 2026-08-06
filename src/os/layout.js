@@ -1,5 +1,6 @@
 (function () {
-  var STORAGE_KEY = "noo-wari.layout";
+  var CONFIG_FILE = "layout.json";
+  var LEGACY_KEY = "noo-wari.layout";
   var BARS = ["top", "bottom"];
 
   var DEFAULT_BAR = "top";
@@ -31,13 +32,13 @@
     var watchers = [];
 
     function store() {
-      window.storage.set(STORAGE_KEY, JSON.stringify(current));
+      window.filesystem.writeConfig(CONFIG_FILE, JSON.stringify(current));
 
       return true;
     }
 
     function load() {
-      var raw = window.storage.get(STORAGE_KEY);
+      var raw = window.filesystem.adoptConfig(CONFIG_FILE, LEGACY_KEY);
 
       if (raw == null) {
         return false;
